@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Event Registration – реєстрація учасників</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--ink:#1d2330;--mute:#6b7385;--line:#e2e6ee;--accent:#0b5cad;--ok:#1f8a4c;--okbg:#e6f5ec;--warn:#b25b00}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0 12px 0 0;white-space:nowrap}
+input,button,select{font:inherit}
+input[type=text],input[type=email],input[type=tel],input[type=number]{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:#fff}
+button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+button.ghost{border-color:transparent;background:transparent;color:var(--mute)}
+button:disabled{opacity:.45;cursor:default}
+#eventName{min-width:260px;flex:1;max-width:420px;font-weight:600}
+.stats{margin-left:auto;display:flex;gap:16px;color:var(--mute);white-space:nowrap}
+.stats b{color:var(--ink);font-size:18px}
+.save{font-size:13px;color:var(--mute);white-space:nowrap}
+.save.dirty{color:var(--warn)}
+main{padding:16px 20px;max-width:1300px;margin:0 auto}
+.toolbar{display:flex;gap:10px;margin-bottom:12px;align-items:center}
+#search{flex:1;font-size:20px;padding:12px 14px}
+.filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{background:#fafbfd;font-size:13px;color:var(--mute);font-weight:600}
+tr.arrived td{background:var(--okbg)}
+td.name{font-weight:600;font-size:16px}
+td.small{color:var(--mute);font-size:13px}
+td.act{white-space:nowrap;text-align:right}
+.btn-in{min-width:150px;font-weight:600}
+.tag{display:inline-block;font-size:11px;padding:2px 6px;border-radius:4px;background:#fff3e0;color:var(--warn);margin-left:6px;vertical-align:middle}
+.time{color:var(--ok);font-weight:600;margin-right:8px}
+.empty{padding:60px;text-align:center;color:var(--mute);background:var(--card);border:1px dashed var(--line);border-radius:8px}
+.modal{position:fixed;inset:0;background:rgba(20,25,35,.45);display:none;align-items:center;justify-content:center;z-index:20}
+.modal.show{display:flex}
+.dlg{background:#fff;border-radius:10px;padding:22px;width:520px;max-width:95vw}
+.dlg h2{margin:0 0 14px;font-size:18px}
+.dlg label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+.dlg input{width:100%}
+.dlg .row{display:flex;gap:8px;align-items:center}
+.dlg input.bad{border-color:#c62828;background:#fff6f6}
+.dlg .msg{color:#c62828;font-size:12px;min-height:15px;margin-top:3px}
+.dlg .btns{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:6px;opacity:0;transition:.25s;z-index:30;pointer-events:none}
+.toast.show{opacity:1}
+.hint{font-size:12px;color:var(--mute)}
+/* бейдж */
+#badgeArea{display:none}
+.badge{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;overflow:hidden;padding:2.5mm 3mm;font-family:Arial,sans-serif;color:#000}
+.badge .ev{font-size:var(--evSize);text-transform:uppercase;letter-spacing:.4px;border-bottom:.3mm solid #000;padding-bottom:1mm;margin-bottom:2mm;width:100%}
+.badge .nm{font-size:var(--nmSize);font-weight:700;line-height:1.1}
+.badge .co{font-size:var(--coSize);margin-top:1.5mm}
+#preview{border:1px dashed #999;margin:10px auto 0;background:#fff;transform-origin:top center}
+@media print{
+  body *{visibility:hidden}
+  #badgeArea,#badgeArea *{visibility:visible}
+  #badgeArea{display:block;position:fixed;left:0;top:0}
+}
+</style>
+<style id="pageStyle">@page{size:90mm 55mm;margin:0}</style>
+</head>
+<body>
+
+<header>
+  <h1>Event Registration</h1>
+  <input id="eventName" type="text" placeholder="Назва заходу (друкується на бейджі)">
+  <button id="btnOpen" class="primary">Відкрити Excel</button>
+  <button id="btnSave" disabled>Зберегти Excel</button>
+  <span id="saveState" class="save"></span>
+  <div class="stats">
+    <span>Зареєстровано: <b id="sTotal">0</b></span>
+    <span>Прийшли: <b id="sIn">0</b></span>
+    <span>На місці: <b id="sWalk">0</b></span>
+  </div>
+  <button class="ghost" id="btnSettings" title="Налаштування бейджа">⚙ Бейдж</button>
+</header>
+
+<main>
+  <div class="toolbar">
+    <input id="search" type="text" placeholder="Пошук: прізвище, компанія, email, телефон…" autocomplete="off" disabled>
+    <span class="filters">
+      <button data-f="all" class="on">Усі</button>
+      <button data-f="wait">Очікуємо</button>
+      <button data-f="in">Прийшли</button>
+    </span>
+    <button id="btnWalkIn" class="ok" disabled>+ Реєстрація на місці</button>
+  </div>
+  <div id="list"><div class="empty">Відкрийте Excel-файл з реєстраціями (кнопка «Відкрити Excel»).<br><span class="hint">Підтримується вивантаження з Google Forms і файли, які вже обробляла ця програма.</span></div></div>
+</main>
+
+<!-- редагування / реєстрація на місці -->
+<div class="modal" id="mEdit"><div class="dlg">
+  <h2 id="mEditTitle">Учасник</h2>
+  <label>Ім'я, прізвище, по батькові за бажанням <span class="hint">(так буде на бейджі)</span></label>
+  <div class="row"><input id="fName" type="text" placeholder="Олександр Петренко або Петренко Олександр Іванович"><button type="button" id="btnSwap" title="Поміняти місцями ім'я та прізвище">⇄</button></div>
+  <div class="msg" id="eName"></div>
+  <label>Компанія</label><input id="fCompany" type="text">
+  <div class="msg" id="eCompany"></div>
+  <label>Посада</label><input id="fPos" type="text">
+  <label>Email</label><input id="fEmail" type="email" placeholder="name@company.com.ua">
+  <div class="msg" id="eEmail"></div>
+  <label>Мобільний телефон</label><input id="fPhone" type="tel" placeholder="+380 67 123 45 67">
+  <div class="msg" id="ePhone"></div>
+  <label>Примітки</label><input id="fNote" type="text">
+  <div class="btns">
+    <button type="button" id="btnCancelEdit">Скасувати</button>
+    <button type="button" id="btnSaveEdit" class="primary">Зберегти</button>
+  </div>
+</div></div>
+
+<!-- налаштування бейджа -->
+<div class="modal" id="mSet"><div class="dlg">
+  <h2>Етикетка бейджа</h2>
+  <div class="row">
+    <div style="flex:1"><label>Ширина, мм</label><input id="sW" type="number" min="30" max="200"></div>
+    <div style="flex:1"><label>Висота, мм</label><input id="sH" type="number" min="20" max="200"></div>
+  </div>
+  <div class="row">
+    <div style="flex:1"><label>Захід, pt</label><input id="sEv" type="number" min="5" max="30"></div>
+    <div style="flex:1"><label>Ім'я, pt</label><input id="sNm" type="number" min="8" max="60"></div>
+    <div style="flex:1"><label>Компанія, pt</label><input id="sCo" type="number" min="6" max="40"></div>
+  </div>
+  <label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input id="sAuto" type="checkbox" style="width:auto"> Друкувати бейдж одразу після відмітки</label>
+  <div id="previewWrap"></div>
+  <div class="btns">
+    <button type="button" id="btnTestPrint">Пробний друк</button>
+    <button type="button" id="btnCloseSet" class="primary">Готово</button>
+  </div>
+</div></div>
+
+<div id="badgeArea"></div>
+<div class="toast" id="toast"></div>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>String(s??'').toLowerCase().replace(/[’'`ʼ]/g,"'").replace(/\s+/g,' ').trim();
+const LS='elko_reg_v1';
+
+// Нові колонки, які програма дописує в Excel
+const C_STATUS='Присутність', C_TIME='Час прибуття', C_SRC='Джерело реєстрації';
+
+let S={ // стан
+  headers:[], rows:[], map:{}, sheetName:'Реєстрація', fileName:'',
+  event:'', filter:'all',
+  badge:{w:90,h:55,ev:8,nm:20,co:12,auto:true}
+};
+let fileHandle=null, dirty=false, editIdx=null, saveTimer=null;
+
+// ---------- збереження стану в браузері (захист від випадкового закриття) ----------
+function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+function restore(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j&&j.badge){S=Object.assign(S,j);S.badge=Object.assign({w:90,h:55,ev:8,nm:20,co:12,auto:true},j.badge)}}catch(e){}}
+
+// ---------- розпізнавання колонок ----------
+function detect(headers){
+  const find=(...keys)=>headers.findIndex(h=>{const n=norm(h);return keys.some(k=>n.includes(k))});
+  const m={
+    name:find('піб','пiб','прізвище','ім\'я','name','фіо'),
+    company:find('компан','організац','company'),
+    pos:find('посад','position'),
+    email:find('email','e-mail','пошт','mail'),
+    phone:find('тел','phone','моб'),
+    note:find('примітк','коментар','note'),
+    num:headers.findIndex(h=>norm(h)==='№'||norm(h)==='no'||norm(h)==='#'),
+  };
+  return m;
+}
+function ensureCol(name){let i=S.headers.indexOf(name);if(i<0){S.headers.push(name);i=S.headers.length-1;S.rows.forEach(r=>r.push(''))}return i}
+function get(r,key){const i=S.map[key];return i>=0?(r[i]??''):''}
+function set(r,key,v){const i=S.map[key];if(i>=0)r[i]=v}
+
+// ---------- відкриття файлу ----------
+async function openFile(){
+  try{
+    if(window.showOpenFilePicker){
+      const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});
+      const f=await h.getFile(); fileHandle=h; await load(await f.arrayBuffer(),f.name);
+    }else{
+      const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls,.csv';
+      inp.onchange=async()=>{const f=inp.files[0];if(f){fileHandle=null;await load(await f.arrayBuffer(),f.name)}};inp.click();
+    }
+  }catch(e){if(e.name!=='AbortError')toast('Не вдалося відкрити файл: '+e.message)}
+}
+async function load(buf,name){
+  const wb=XLSX.read(buf,{type:'array'});
+  const sn=wb.SheetNames[0]; const ws=wb.Sheets[sn];
+  const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+  // заголовок = перший рядок, де є колонка з ПІБ/ім'ям
+  let hr=aoa.findIndex(r=>r.some(c=>/піб|прізвище|ім'я|name/i.test(String(c))));
+  if(hr<0)hr=0;
+  if(S.rows.length&&S.fileName&&S.fileName!==name&&!confirm('У програмі є дані з файлу «'+S.fileName+'». Замінити їх новим файлом?'))return;
+  S.headers=aoa[hr].map(h=>String(h).trim());
+  S.rows=aoa.slice(hr+1).filter(r=>r.some(c=>String(c).trim()!==''));
+  const w=S.headers.length; S.rows.forEach(r=>{while(r.length<w)r.push('')});
+  S.sheetName=sn; S.fileName=name;
+  S.map=detect(S.headers);
+  if(S.map.name<0){toast('Не знайшов колонку з ПІБ. Перевірте заголовки.');}
+  S.map.status=ensureCol(C_STATUS); S.map.time=ensureCol(C_TIME); S.map.src=ensureCol(C_SRC);
+  if(S.map.company<0){S.map.company=ensureCol('Компанія')}
+  S.rows.forEach(r=>{if(!r[S.map.src])r[S.map.src]='Форма'});
+  if(!S.event){S.event=name.replace(/\.[^.]+$/,'')}
+  $('#eventName').value=S.event;
+  dirty=false; persist(); enable(); render();
+  toast('Завантажено учасників: '+S.rows.length+(fileHandle?' · зміни зберігатимуться у цей самий файл':''));
+  $('#search').focus();
+}
+
+// ---------- запис у Excel ----------
+function buildWb(){
+  const aoa=[S.headers,...S.rows];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=S.headers.map((h,i)=>({wch:Math.min(45,Math.max(8,String(h).length+2,...S.rows.slice(0,200).map(r=>String(r[i]??'').length+1)))}));
+  ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:S.rows.length,c:S.headers.length-1}})};
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,S.sheetName.slice(0,31));
+  return wb;
+}
+async function save(manual){
+  if(!S.rows.length)return;
+  try{
+    if(fileHandle){
+      const out=XLSX.write(buildWb(),{bookType:'xlsx',type:'array'});
+      const w=await fileHandle.createWritable(); await w.write(out); await w.close();
+      dirty=false; setSaveState();
+      if(manual)toast('Збережено у «'+S.fileName+'»');
+    }else if(manual){
+      XLSX.writeFile(buildWb(),S.fileName.replace(/\.[^.]+$/,'')+'_реєстрація.xlsx');
+      dirty=false; setSaveState();
+    }
+  }catch(e){
+    setSaveState('Помилка запису: файл відкрито в Excel? Закрийте його й натисніть «Зберегти Excel».');
+  }
+}
+function changed(){
+  dirty=true; persist(); setSaveState();
+  clearTimeout(saveTimer); if(fileHandle)saveTimer=setTimeout(()=>save(false),400);
+}
+function setSaveState(msg){
+  const el=$('#saveState');
+  if(msg){el.textContent=msg;el.className='save dirty';return}
+  if(!S.rows.length){el.textContent='';return}
+  if(dirty){el.textContent=fileHandle?'Зберігаю…':'Є незбережені зміни';el.className='save dirty'}
+  else{el.textContent=fileHandle?'✓ Збережено у файл':'✓ Збережено';el.className='save'}
+}
+
+// ---------- відмітка ----------
+function now(){const d=new Date();return d.toLocaleDateString('uk-UA')+' '+d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}
+function isIn(r){return String(r[S.map.status]).trim()!==''}
+function checkIn(i){
+  const r=S.rows[i]; r[S.map.status]='Так'; r[S.map.time]=now();
+  changed(); render();
+  if(S.badge.auto)printBadge(r);
+  toast('✓ '+displayName(r)+' – відмічено');
+  const s=$('#search'); s.value=''; render(); s.focus();
+}
+function undo(i){
+  const r=S.rows[i];
+  if(!confirm('Зняти відмітку з «'+displayName(r)+'»?'))return;
+  r[S.map.status]=''; r[S.map.time]=''; changed(); render();
+}
+function displayName(r){return String(get(r,'name')).replace(/\s+/g,' ').trim()}
+
+// ---------- список ----------
+function render(){
+  const q=norm($('#search').value);
+  const qd=q.replace(/\D/g,'');
+  let idx=S.rows.map((r,i)=>i).filter(i=>{
+    const r=S.rows[i];
+    if(S.filter==='in'&&!isIn(r))return false;
+    if(S.filter==='wait'&&isIn(r))return false;
+    if(!q)return true;
+    const hay=norm([get(r,'name'),get(r,'company'),get(r,'email'),get(r,'pos')].join(' '));
+    if(q.split(' ').every(w=>hay.includes(w)))return true;
+    return qd.length>=4&&String(get(r,'phone')).replace(/\D/g,'').includes(qd);
+  });
+  const total=S.rows.length, inn=S.rows.filter(isIn).length, walk=S.rows.filter(r=>r[S.map.src]==='На місці').length;
+  $('#sTotal').textContent=total; $('#sIn').textContent=inn; $('#sWalk').textContent=walk;
+  if(!total)return;
+  if(!idx.length){$('#list').innerHTML='<div class="empty">Нікого не знайдено.<br><br><button class="ok" onclick="REG.walkIn()">+ Зареєструвати на місці</button></div>';return}
+  idx.sort((a,b)=>norm(get(S.rows[a],'name')).localeCompare(norm(get(S.rows[b],'name')),'uk'));
+  let h='<table><thead><tr><th>Учасник</th><th>Компанія</th><th>Посада</th><th>Контакти</th><th></th></tr></thead><tbody>';
+  for(const i of idx){
+    const r=S.rows[i], a=isIn(r);
+    h+=`<tr class="${a?'arrived':''}">
+      <td class="name">${esc(displayName(r))}${r[S.map.src]==='На місці'?'<span class="tag">на місці</span>':''}</td>
+      <td>${esc(get(r,'company'))}</td>
+      <td class="small">${esc(get(r,'pos'))}</td>
+      <td class="small">${esc(get(r,'email'))}<br>${esc(get(r,'phone'))}</td>
+      <td class="act">${a
+        ?`<span class="time">✓ ${esc(r[S.map.time])}</span><button onclick="REG.print(${i})" title="Надрукувати ще раз">🖨</button> <button class="ghost" onclick="REG.edit(${i})" title="Редагувати">✎</button> <button class="ghost" onclick="REG.undo(${i})" title="Зняти відмітку">↺</button>`
+        :`<button class="ghost" onclick="REG.edit(${i})" title="Редагувати">✎</button> <button class="ok btn-in" onclick="REG.in(${i})">Прийшов ✓</button>`}</td></tr>`;
+  }
+  $('#list').innerHTML=h+'</tbody></table>';
+}
+
+// ---------- перевірки вводу ----------
+const WORD=/^[A-Za-zА-ЩЬЮЯҐЄІЇа-щьюяґєії]+(?:['’ʼ-][A-Za-zА-ЩЬЮЯҐЄІЇа-щьюяґєії]+)*$/;
+const EMAIL=/^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+function cap(w){return w.split(/(['’ʼ-])/).map((x,k,a)=>k===0||a[k-1]==='-'?x.charAt(0).toUpperCase()+x.slice(1).toLowerCase():x.toLowerCase()).join('')}
+function phoneDigits(v){ // 9 цифр після +380
+  let d=String(v??'').replace(/\D/g,'');
+  if(d.startsWith('380'))d=d.slice(3); else if(d.startsWith('80')&&d.length===11)d=d.slice(2); else if(d.startsWith('0')&&d.length===10)d=d.slice(1);
+  return d.slice(0,9);
+}
+function phoneFmt(d){
+  const p=[d.slice(0,2),d.slice(2,5),d.slice(5,7),d.slice(7,9)].filter(Boolean);
+  return '+380'+(p.length?' '+p.join(' '):' ');
+}
+function onPhoneInput(){
+  const el=$('#fPhone'); let d=el.value.replace(/^\+?380\s?/,'').replace(/\D/g,'');
+  if(d.startsWith('380'))d=d.slice(3); if(d.startsWith('0'))d=d.slice(1);
+  el.value=phoneFmt(d.slice(0,9));
+  el.setSelectionRange(el.value.length,el.value.length);
+  if(el.classList.contains('bad'))validate(true);
+}
+function mark(id,msg){$('#f'+id).classList.toggle('bad',!!msg);$('#e'+id).textContent=msg||''}
+function validate(show){
+  const name=$('#fName').value.trim().replace(/\s+/g,' ');
+  const words=name?name.split(' '):[];
+  let eN='';
+  if(words.length<2||words.length>3)eN=words.length<2?"Введіть ім'я та прізвище (по батькові – за бажанням)":"Не більше 3 слів: прізвище, ім'я, по батькові";
+  else if(!words.every(w=>WORD.test(w)&&w.replace(/['’ʼ-]/g,'').length>=2))eN='Лише літери, апостроф або дефіс, щонайменше 2 літери в слові';
+  const eC=$('#fCompany').value.trim()?'':'Вкажіть компанію';
+  const em=$('#fEmail').value.trim();
+  const eE=!em?'Вкажіть email':EMAIL.test(em)?'':'Невірний формат, приклад: name@company.com.ua';
+  const d=phoneDigits($('#fPhone').value);
+  const eP=d.length!==9?'Введіть 9 цифр після +380':'';
+  if(show){mark('Name',eN);mark('Company',eC);mark('Email',eE);mark('Phone',eP)}
+  return !(eN||eC||eE||eP);
+}
+
+// ---------- редагування / реєстрація на місці ----------
+function openEdit(i){
+  editIdx=i; const r=i===null?null:S.rows[i];
+  $('#mEditTitle').textContent=i===null?'Реєстрація на місці':'Редагування учасника';
+  $('#btnSaveEdit').textContent=i===null?'Зареєструвати і відмітити':'Зберегти';
+  const q=$('#search').value.trim();
+  $('#fName').value=r?displayName(r):(/\d|@/.test(q)?'':q.split(/\s+/).map(cap).join(' '));
+  $('#fCompany').value=r?get(r,'company'):'';
+  $('#fPos').value=r?get(r,'pos'):'';
+  $('#fEmail').value=r?get(r,'email'):(q.includes('@')?q:'');
+  $('#fPhone').value=phoneFmt(phoneDigits(r?get(r,'phone'):(/^[\d\s+()-]{7,}$/.test(q)?q:'')));
+  ['Name','Company','Email','Phone'].forEach(k=>mark(k,''));
+  $('#fNote').value=r?get(r,'note'):'';
+  $('#mEdit').classList.add('show'); $('#fName').focus();
+}
+function saveEdit(){
+  if(!validate(true)){const b=document.querySelector('#mEdit input.bad');if(b)b.focus();return}
+  const name=$('#fName').value.trim().split(/\s+/).map(cap).join(' ');
+  const phone='+380'+phoneDigits($('#fPhone').value);
+  let r;
+  if(editIdx===null){
+    r=new Array(S.headers.length).fill('');
+    if(S.map.num>=0){const nums=S.rows.map(x=>+x[S.map.num]).filter(n=>!isNaN(n));r[S.map.num]=(nums.length?Math.max(...nums):0)+1}
+    r[S.map.src]='На місці'; S.rows.push(r);
+  }else r=S.rows[editIdx];
+  set(r,'name',name); set(r,'company',$('#fCompany').value.trim()); set(r,'pos',$('#fPos').value.trim());
+  set(r,'email',$('#fEmail').value.trim().toLowerCase()); set(r,'phone',phone);
+  if(S.map.note>=0)set(r,'note',$('#fNote').value.trim());
+  $('#mEdit').classList.remove('show');
+  if(editIdx===null){checkIn(S.rows.length-1)}else{changed();render()}
+}
+
+// ---------- бейдж ----------
+function badgeHTML(r,scale){
+  const b=S.badge;
+  return `<div class="badge" style="width:${b.w}mm;height:${b.h}mm;--evSize:${b.ev}pt;--nmSize:${b.nm}pt;--coSize:${b.co}pt">
+    ${S.event?`<div class="ev">${esc(S.event)}</div>`:''}
+    <div class="nm">${esc(r?displayName(r):'Олександр Петренко')}</div>
+    <div class="co">${esc(r?get(r,'company'):'ТОВ «Компанія»')}</div></div>`;
+}
+function applyPage(){$('#pageStyle').textContent=`@page{size:${S.badge.w}mm ${S.badge.h}mm;margin:0}`}
+function printBadge(r){
+  applyPage(); $('#badgeArea').innerHTML=badgeHTML(r);
+  // ім'я, що не вміщається, зменшуємо
+  const el=$('#badgeArea .badge'); $('#badgeArea').style.display='block';
+  const nm=el.querySelector('.nm'); let pt=S.badge.nm;
+  while(el.scrollHeight>el.clientHeight+1&&pt>8){pt--;nm.style.fontSize=pt+'pt'}
+  $('#badgeArea').style.display='';
+  setTimeout(()=>window.print(),50);
+}
+function openSettings(){
+  const b=S.badge; $('#sW').value=b.w;$('#sH').value=b.h;$('#sEv').value=b.ev;$('#sNm').value=b.nm;$('#sCo').value=b.co;$('#sAuto').checked=b.auto;
+  drawPreview(); $('#mSet').classList.add('show');
+}
+function readSettings(){const b=S.badge;b.w=+$('#sW').value||90;b.h=+$('#sH').value||55;b.ev=+$('#sEv').value||8;b.nm=+$('#sNm').value||20;b.co=+$('#sCo').value||12;b.auto=$('#sAuto').checked;persist();drawPreview()}
+function drawPreview(){const r=S.rows.find(x=>displayName(x))||null;$('#previewWrap').innerHTML='<label>Попередній перегляд</label><div id="preview" style="width:'+S.badge.w+'mm">'+badgeHTML(r)+'</div>'}
+
+// ---------- дрібниці ----------
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2600)}
+function enable(){['#btnSave','#search','#btnWalkIn'].forEach(s=>$(s).disabled=false);setSaveState()}
+
+// ---------- події ----------
+$('#btnOpen').onclick=openFile;
+$('#btnSave').onclick=()=>save(true);
+$('#btnWalkIn').onclick=()=>openEdit(null);
+$('#search').oninput=render;
+$('#search').onkeydown=e=>{
+  if(e.key==='Enter'){ // Enter: якщо знайдено рівно одного неприбулого – відмітити
+    const q=norm($('#search').value); if(!q)return;
+    const vis=[...document.querySelectorAll('#list .btn-in')];
+    if(vis.length===1)vis[0].click(); else if(!vis.length&&!document.querySelector('#list tbody'))openEdit(null);
+  }
+  if(e.key==='Escape'){$('#search').value='';render()}
+};
+document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filters button').forEach(x=>x.classList.remove('on'));b.classList.add('on');S.filter=b.dataset.f;render()});
+$('#eventName').oninput=e=>{S.event=e.target.value;persist()};
+$('#btnSwap').onclick=()=>{ // 2 слова: міняємо місцями; 3 слова: «Прізвище Ім'я По батькові» ⇄ «Ім'я По батькові Прізвище»
+  let p=$('#fName').value.trim().split(/\s+/);const pat=/(вич|вна|ична|ічна)$/i;
+  if(p.length===2)p=[p[1],p[0]];
+  else if(p.length===3)p=pat.test(p[1])?[p[2],p[0],p[1]]:[p[1],p[2],p[0]];
+  $('#fName').value=p.join(' ')};
+$('#fPhone').oninput=onPhoneInput;
+$('#fPhone').onfocus=()=>{if(!$('#fPhone').value)$('#fPhone').value='+380 ';setTimeout(()=>{const e=$('#fPhone');e.setSelectionRange(e.value.length,e.value.length)})};
+$('#fPhone').onkeydown=e=>{const el=e.target;if((e.key==='Backspace'&&el.selectionStart<=5&&el.selectionEnd<=5)||(e.key==='Delete'&&el.selectionStart<4))e.preventDefault()};
+$('#fName').onblur=()=>{const v=$('#fName').value.trim();if(v)$('#fName').value=v.split(/\s+/).map(cap).join(' ')};
+['#fName','#fCompany','#fEmail'].forEach(s=>$(s).addEventListener('input',()=>{if($(s).classList.contains('bad'))validate(true)}));
+$('#btnCancelEdit').onclick=()=>$('#mEdit').classList.remove('show');
+$('#btnSaveEdit').onclick=saveEdit;
+$('#mEdit').onkeydown=e=>{if(e.key==='Enter')saveEdit();if(e.key==='Escape')$('#mEdit').classList.remove('show')};
+$('#btnSettings').onclick=openSettings;
+['#sW','#sH','#sEv','#sNm','#sCo','#sAuto'].forEach(s=>$(s).oninput=readSettings);
+$('#btnTestPrint').onclick=()=>printBadge(S.rows.find(x=>displayName(x))||null);
+$('#btnCloseSet').onclick=()=>$('#mSet').classList.remove('show');
+window.addEventListener('beforeunload',e=>{if(dirty&&!fileHandle){e.preventDefault();e.returnValue=''}});
+
+window.REG={in:checkIn,undo,edit:openEdit,print:i=>printBadge(S.rows[i]),walkIn:()=>openEdit(null)};
+
+// відновлення після перезапуску браузера
+restore();
+if(S.rows.length){
+  $('#eventName').value=S.event; enable(); render();
+  setSaveState('Відновлено «'+S.fileName+'» з минулої сесії. Натисніть «Зберегти Excel», щоб записати у файл.');
+  dirty=true;
+}
+})();
+</script>
+</body>
+</html>
