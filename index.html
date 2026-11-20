@@ -25,6 +25,35 @@ button:disabled{opacity:.45;cursor:default}
 .save{font-size:13px;color:var(--mute);white-space:nowrap}
 .save.dirty{color:var(--warn)}
 main{padding:16px 20px 50px;max-width:1300px;margin:0 auto}
+/* майстер підготовки */
+#setup{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px 24px;margin-bottom:16px}
+#setup h2{margin:0 0 4px;font-size:20px}
+#setup .sub{color:var(--mute);margin-bottom:14px}
+.step{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+.step .num{flex:0 0 30px;height:30px;border-radius:50%;background:#e8edf5;color:var(--ink);font-weight:700;display:flex;align-items:center;justify-content:center}
+.step.done .num{background:var(--ok);color:#fff}
+.step.err .num{background:#c62828;color:#fff}
+.step.locked{opacity:.45}
+.step .body{flex:1}
+.step .t{font-weight:600;font-size:16px}
+.step .d{color:var(--mute);font-size:13px;margin:3px 0 8px}
+.step .res{color:var(--ok);font-weight:600}
+.step .bad{color:#c62828;font-weight:600}
+.step input[type=text]{width:100%;max-width:520px;font-size:17px}
+.step input.need{border:2px solid var(--warn);background:#fffaf2}
+#btnStart{font-size:18px;padding:12px 28px;margin-top:8px}
+#readyBar{display:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 14px;margin-bottom:12px;color:var(--mute);font-size:14px}
+#readyBar b{color:var(--ink)}
+#work{display:none}
+.searchHint{font-size:13px;color:var(--mute);margin:-4px 0 12px 2px}
+.searchHint kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:#fff;font-family:inherit}
+button.sm{padding:6px 10px;font-size:13px}
+.help ol{padding-left:20px;line-height:1.55}
+.help h3{font-size:15px;margin:16px 0 6px}
+.help p{margin:4px 0;font-size:14px}
+.big{font-size:16px;line-height:1.5}
+.dlg.wide{width:640px}
+.dlg .scroll{max-height:65vh;overflow:auto;padding-right:6px}
 footer.copy{position:fixed;bottom:0;left:0;right:0;padding:6px 20px;font-size:12px;color:var(--mute);background:var(--bg);border-top:1px solid var(--line);text-align:center}
 footer.copy a{color:var(--mute)}
 .toolbar{display:flex;gap:10px;margin-bottom:12px;align-items:center}
@@ -78,29 +107,74 @@ td.act{white-space:nowrap;text-align:right}
 
 <header>
   <h1>Event Registration</h1>
-  <input id="eventName" type="text" placeholder="Назва заходу (друкується на бейджі)">
-  <button id="btnOpen" class="primary">Відкрити Excel</button>
-  <button id="btnSave" disabled>Зберегти Excel</button>
   <span id="saveState" class="save"></span>
+  <button id="btnSave" class="sm" style="display:none">Зберегти зараз</button>
   <div class="stats">
     <span>Зареєстровано: <b id="sTotal">0</b></span>
     <span>Прийшли: <b id="sIn">0</b></span>
     <span>На місці: <b id="sWalk">0</b></span>
   </div>
-  <button class="ghost" id="btnSettings" title="Налаштування бейджа">⚙ Бейдж</button>
+  <button id="btnSettings">⚙ Етикетка</button>
+  <button id="btnHelp" class="primary">? Інструкція</button>
 </header>
 
 <main>
+  <section id="setup">
+    <h2>Підготовка до реєстрації</h2>
+    <div class="sub">Пройдіть кроки по черзі. Це займе 2 хвилини, після цього можна приймати гостей.</div>
+
+    <div class="step" id="st1"><div class="num">1</div><div class="body">
+      <div class="t">Відкрийте Excel-файл зі списком учасників</div>
+      <div class="d">Файл, вивантажений з Google Forms. Його вам має надіслати організатор.</div>
+      <div id="st1res"></div>
+      <button id="btnOpen" class="primary">Відкрити Excel-файл</button>
+    </div></div>
+
+    <div class="step locked" id="st2"><div class="num">2</div><div class="body">
+      <div class="t">Дозвольте програмі записувати відмітки у цей файл</div>
+      <div class="d">Натисніть кнопку. Браузер спитає дозволу. Виберіть <b>«Дозволити»</b> або <b>«Зберегти зміни»</b>, не «Скасувати».</div>
+      <div id="st2res"></div>
+      <button id="btnPerm" class="primary" disabled>Дозволити запис у файл</button>
+    </div></div>
+
+    <div class="step locked" id="st3"><div class="num">3</div><div class="body">
+      <div class="t">Впишіть назву заходу</div>
+      <div class="d">Вона друкується вгорі кожного бейджа. Наприклад: KSTAR Energy Day · Вінниця</div>
+      <input id="eventName" type="text" placeholder="Назва заходу" disabled>
+    </div></div>
+
+    <div class="step locked" id="st4"><div class="num">4</div><div class="body">
+      <div class="t">Надрукуйте пробну етикетку</div>
+      <div class="d">Вийдуть 2 етикетки. Перевірте, що текст читається і не обрізаний.</div>
+      <div id="st4q" style="display:none;margin-bottom:8px" class="big">Етикетки надрукувались правильно?
+        <button id="btnTestOk" class="ok sm">Так, усе добре</button>
+        <button id="btnTestBad" class="sm">Ні, налаштувати</button></div>
+      <div id="st4res"></div>
+      <button id="btnTest" disabled>Пробний друк</button>
+      <button id="btnTestSkip" class="ghost sm" disabled>Пропустити</button>
+    </div></div>
+
+    <div style="border-top:1px solid var(--line);padding-top:12px">
+      <button id="btnStart" class="ok" disabled>Почати реєстрацію →</button>
+      <span id="startHint" class="hint" style="margin-left:10px"></span>
+    </div>
+  </section>
+
+  <div id="readyBar">Захід: <b id="rbEvent"></b> · файл <b id="rbFile"></b> · <a href="#" id="btnBackSetup">змінити файл або назву</a></div>
+
+  <div id="work">
   <div class="toolbar">
-    <input id="search" type="text" placeholder="Пошук: прізвище, компанія, email, телефон…" autocomplete="off" disabled>
+    <input id="search" type="text" placeholder="Почніть вводити прізвище гостя…" autocomplete="off">
     <span class="filters">
       <button data-f="all" class="on">Усі</button>
       <button data-f="wait">Очікуємо</button>
       <button data-f="in">Прийшли</button>
     </span>
-    <button id="btnWalkIn" class="ok" disabled>+ Реєстрація на місці</button>
+    <button id="btnWalkIn" class="ok">+ Гостя немає у списку</button>
   </div>
-  <div id="list"><div class="empty">Відкрийте Excel-файл з реєстраціями (кнопка «Відкрити Excel»).<br><span class="hint">Підтримується вивантаження з Google Forms і файли, які вже обробляла ця програма.</span></div></div>
+  <div class="searchHint">Шукайте за прізвищем, компанією або телефоном. Знайшли гостя – натисніть <b>«Прийшов ✓»</b> (або <kbd>Enter</kbd>, якщо в списку один рядок). Програма запише відмітку і надрукує 2 етикетки.</div>
+  <div id="list"></div>
+  </div>
 </main>
 
 <!-- редагування / реєстрація на місці -->
@@ -148,6 +222,41 @@ td.act{white-space:nowrap;text-align:right}
   </div>
 </div></div>
 
+<!-- підказка перед друком -->
+<div class="modal" id="mPrint"><div class="dlg">
+  <h2>Зараз відкриється вікно друку</h2>
+  <ol class="big">
+    <li>У полі <b>«Принтер»</b> виберіть <b>Toshiba</b>. Не «Зберегти як PDF» і не офісний принтер.</li>
+    <li>Натисніть <b>«Друк»</b>.</li>
+    <li>Вийдуть <b>2 однакові етикетки</b>: наклейте їх на обидва боки бейджа.</li>
+  </ol>
+  <label style="display:flex;gap:8px;align-items:center;color:var(--ink);margin-top:12px"><input id="pHintOff" type="checkbox" style="width:auto"> Зрозуміло, більше не показувати</label>
+  <div class="btns"><button id="btnPrintGo" class="primary">Відкрити вікно друку</button></div>
+</div></div>
+
+<!-- інструкція -->
+<div class="modal" id="mHelp"><div class="dlg wide help"><div class="scroll">
+  <h2>Як працювати на реєстрації</h2>
+  <ol>
+    <li>Гість називає прізвище. Почніть вводити його в поле пошуку, вистачить 3–4 літер.</li>
+    <li>Знайшли гостя у списку – натисніть зелену кнопку <b>«Прийшов ✓»</b>.</li>
+    <li>Відкриється вікно друку: принтер <b>Toshiba</b> → <b>«Друк»</b>. Вийдуть 2 етикетки, наклейте їх на обидва боки бейджа.</li>
+    <li>Гостя немає у списку – <b>«+ Гостя немає у списку»</b>. Заповніть ім'я та прізвище, компанію, email і телефон, натисніть «Зареєструвати і надрукувати бейдж».</li>
+    <li>Рядок гостя стане зеленим. Відмітка вже збережена у файлі, нічого натискати не треба.</li>
+  </ol>
+  <h3>Якщо щось пішло не так</h3>
+  <p><b>Бейдж не надрукувався або зіпсувався.</b> Знайдіть гостя (фільтр «Прийшли») і натисніть «Друк ще раз».</p>
+  <p><b>Відмітили не ту людину.</b> Натисніть «Скасувати відмітку» в її рядку.</p>
+  <p><b>Помилка в імені чи компанії.</b> Кнопка «Змінити» в рядку гостя, виправте і збережіть, потім «Друк ще раз».</p>
+  <p><b>Вгорі жовте попередження «Не вдалося записати».</b> Excel-файл відкрито в іншій програмі. Закрийте Excel, програма допише відмітки сама.</p>
+  <p><b>Браузер закрився або ноутбук перезавантажився.</b> Відкрийте програму знову: усі відмітки на місці. Пройдіть крок 2 «Дозволити запис у файл» ще раз.</p>
+  <p><b>Гість реєструвався, але його не знаходить.</b> Спробуйте шукати за компанією або останніми цифрами телефону. Ім'я могли записати з помилкою.</p>
+  <h3>Друк без вікна підтвердження</h3>
+  <p>Запустіть програму файлом <b>«Запуск реєстрації.bat»</b> з репозиторію. Тоді бейджі друкуються одразу на принтер за замовчуванням, тож Toshiba має бути принтером за замовчуванням у Windows.</p>
+  <h3>Контакт</h3>
+  <p>Питання та проблеми: <a href="mailto:toshiba@elko.ua">toshiba@elko.ua</a></p>
+</div><div class="btns"><button id="btnHelpClose" class="primary">Зрозуміло</button></div></div></div>
+
 <footer class="copy">Event Registration · © 2026 Володимир Гук, ELKO Ukraine · <a href="mailto:toshiba@elko.ua">toshiba@elko.ua</a></footer>
 
 <div id="badgeArea"></div>
@@ -168,13 +277,18 @@ const C_STATUS='Присутність', C_TIME='Час прибуття', C_SRC
 let S={ // стан
   headers:[], rows:[], map:{}, sheetName:'Реєстрація', fileName:'',
   event:'', filter:'all',
-  badge:{w:90,h:55,ev:8,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:8,copies:2}
+  badge:{w:90,h:55,ev:8,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:8,copies:2,hintOff:false}
 };
-let fileHandle=null, dirty=false, editIdx=null, saveTimer=null;
+let fileHandle=null, dirty=false, editIdx=null, saveTimer=null, canWrite=false, started=false, printHintShown=false;
+const KIOSK=/[?&]kiosk=1/.test(location.search);
+// дескриптор файлу зберігаємо в IndexedDB, щоб після перезапуску браузера не шукати файл заново
+function idb(){return new Promise((ok,no)=>{const q=indexedDB.open('elko_reg',1);q.onupgradeneeded=()=>q.result.createObjectStore('h');q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error)})}
+async function idbSet(v){try{const db=await idb();db.transaction('h','readwrite').objectStore('h').put(v,'file')}catch(e){}}
+async function idbGet(){try{const db=await idb();return await new Promise(ok=>{const q=db.transaction('h').objectStore('h').get('file');q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null)})}catch(e){return null}}
 
 // ---------- збереження стану в браузері (захист від випадкового закриття) ----------
 function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function restore(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j&&j.badge){S=Object.assign(S,j);S.badge=Object.assign({w:90,h:55,ev:8,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:8,copies:2},j.badge)}}catch(e){}}
+function restore(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j&&j.badge){S=Object.assign(S,j);S.badge=Object.assign({w:90,h:55,ev:8,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:8,copies:2,hintOff:false},j.badge)}}catch(e){}}
 
 // ---------- розпізнавання колонок ----------
 function detect(headers){
@@ -199,10 +313,10 @@ async function openFile(){
   try{
     if(window.showOpenFilePicker){
       const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});
-      const f=await h.getFile(); fileHandle=h; await load(await f.arrayBuffer(),f.name);
+      const f=await h.getFile(); fileHandle=h; canWrite=false; idbSet(h); await load(await f.arrayBuffer(),f.name);
     }else{
       const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls,.csv';
-      inp.onchange=async()=>{const f=inp.files[0];if(f){fileHandle=null;await load(await f.arrayBuffer(),f.name)}};inp.click();
+      inp.onchange=async()=>{const f=inp.files[0];if(f){fileHandle=null;canWrite=false;await load(await f.arrayBuffer(),f.name)}};inp.click();
     }
   }catch(e){if(e.name!=='AbortError')toast('Не вдалося відкрити файл: '+e.message)}
 }
@@ -217,19 +331,66 @@ async function load(buf,name){
   S.headers=aoa[hr].map(h=>String(h).trim());
   S.rows=aoa.slice(hr+1).filter(r=>r.some(c=>String(c).trim()!==''));
   const w=S.headers.length; S.rows.forEach(r=>{while(r.length<w)r.push('')});
+  if(S.fileName!==name){S.event='';S.testDone=false;$('#eventName').value=''}
   S.sheetName=sn; S.fileName=name;
   S.map=detect(S.headers);
-  if(S.map.name<0){toast('Не знайшов колонку з ПІБ. Перевірте заголовки.');}
   S.map.status=ensureCol(C_STATUS); S.map.time=ensureCol(C_TIME); S.map.src=ensureCol(C_SRC);
   if(S.map.company<0){S.map.company=ensureCol('Компанія')}
   S.rows.forEach(r=>{if(!r[S.map.src])r[S.map.src]='Форма'});
-  if(!S.event){S.event=name.replace(/\.[^.]+$/,'')}
-  $('#eventName').value=S.event;
-  dirty=false; persist(); enable(); render();
-  toast('Завантажено учасників: '+S.rows.length+(fileHandle?' · кожна відмітка одразу записується у цей файл':''));
-  if(!fileHandle)setSaveState('Цей браузер не вміє записувати у файл. Відкрийте програму в Chrome або Edge, інакше зберігайте вручну.');
-  $('#search').focus();
+  if(S.map.name<0){S.rows=[];alert('У файлі «'+name+'» не знайдено колонку з ім\'ям (ПІБ). Перевірте, що це вивантаження з форми реєстрації.');S.fileName='';updateSetup();return}
+  dirty=true; persist(); render(); updateSetup();
+  toast('Завантажено учасників: '+S.rows.length);
+  if(fileHandle){$('#btnPerm').focus()}
 }
+
+// ---------- дозвіл на запис ----------
+async function checkPerm(){
+  if(!fileHandle){canWrite=false;return false}
+  try{canWrite=(await fileHandle.queryPermission({mode:'readwrite'}))==='granted'}catch(e){canWrite=false}
+  return canWrite;
+}
+async function askPerm(){
+  if(!fileHandle)return;
+  try{canWrite=(await fileHandle.requestPermission({mode:'readwrite'}))==='granted'}catch(e){canWrite=false}
+  if(canWrite){await save(false)}
+  else{$('#st2res').innerHTML='<div class="bad">Запис не дозволено. Натисніть кнопку ще раз і виберіть «Дозволити» / «Зберегти зміни».</div>'}
+  updateSetup();
+}
+
+// ---------- майстер підготовки ----------
+function updateSetup(){
+  const has=S.rows.length>0, ev=(S.event||'').trim().length>=3;
+  const st=(id,done,locked,err)=>{const e=$(id);e.classList.toggle('done',!!done);e.classList.toggle('locked',!!locked);e.classList.toggle('err',!!err)};
+  st('#st1',has);
+  $('#st1res').innerHTML=has?`<div class="res">✓ ${esc(S.fileName)} · учасників: ${S.rows.length}</div>`:'';
+  $('#btnOpen').textContent=has?'Відкрити інший файл':'Відкрити Excel-файл';
+  $('#btnOpen').className=has?'sm':'primary';
+  const noApi=!window.showOpenFilePicker;
+  st('#st2',canWrite,!has,has&&noApi);
+  $('#btnPerm').disabled=!has||canWrite||noApi;
+  $('#btnPerm').style.display=canWrite?'none':'';
+  if(has&&noApi)$('#st2res').innerHTML='<div class="bad">Цей браузер не вміє записувати у файл. Відкрийте програму в Google Chrome або Microsoft Edge.</div>';
+  else if(canWrite)$('#st2res').innerHTML='<div class="res">✓ Відмітки записуються у файл автоматично</div>';
+  else if(!$('#st2res').querySelector('.bad'))$('#st2res').innerHTML='';
+  const ok2=canWrite;
+  st('#st3',ev,!ok2);
+  $('#eventName').disabled=!ok2;
+  $('#eventName').classList.toggle('need',ok2&&!ev);
+  st('#st4',S.testDone,!(ok2&&ev));
+  $('#btnTest').disabled=$('#btnTestSkip').disabled=!(ok2&&ev);
+  $('#btnTest').style.display=$('#btnTestSkip').style.display=S.testDone?'none':'';
+  $('#st4res').innerHTML=S.testDone?'<div class="res">✓ Готово</div>':'';
+  const ready=has&&ok2&&ev&&S.testDone;
+  $('#btnStart').disabled=!ready;
+  $('#startHint').textContent=ready?'':'Кнопка стане активною, коли всі кроки позначені зеленим.';
+  if(ok2&&!ev&&document.activeElement!==$('#eventName'))setTimeout(()=>$('#eventName').focus(),50);
+}
+function startWork(){
+  started=true; $('#setup').style.display='none'; $('#work').style.display='block'; $('#readyBar').style.display='block';
+  $('#rbEvent').textContent=S.event; $('#rbFile').textContent=S.fileName;
+  render(); setSaveState(); $('#search').focus();
+}
+function backToSetup(){started=false;$('#setup').style.display='';$('#work').style.display='none';$('#readyBar').style.display='none';updateSetup()}
 
 // ---------- запис у Excel ----------
 function buildWb(){
@@ -245,7 +406,7 @@ async function save(manual){
   if(!S.rows.length)return true;
   if(saving){await saving; if(!dirty&&!manual)return true}
   saving=(async()=>{try{
-    if(fileHandle){
+    if(fileHandle&&canWrite){
       const out=XLSX.write(buildWb(),{bookType:'xlsx',type:'array'});
       // запис і закриття файлу: після close() файл вільний, його можна відкрити в Excel
       const w=await fileHandle.createWritable({keepExistingData:false}); await w.write(out); await w.close();
@@ -265,14 +426,16 @@ async function save(manual){
 }
 function changed(){
   dirty=true; persist(); setSaveState();
-  clearTimeout(saveTimer); if(fileHandle)saveTimer=setTimeout(()=>save(false),300);
+  clearTimeout(saveTimer); if(canWrite)saveTimer=setTimeout(()=>save(false),300);
 }
 function setSaveState(msg){
   const el=$('#saveState');
   if(msg){el.textContent=msg;el.className='save dirty';return}
   if(!S.rows.length){el.textContent='';return}
-  if(dirty){el.textContent=fileHandle?'Зберігаю…':'Є незбережені зміни';el.className='save dirty'}
-  else{el.textContent=fileHandle?'✓ Збережено о '+new Date().toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+', файл закрито':'✓ Збережено';el.className='save'}
+  $('#btnSave').style.display=(!canWrite&&started)?'':'none';
+  $('#btnSave').textContent='Скачати Excel';
+  if(dirty){el.textContent=canWrite?'Записую у файл…':'⚠ Відмітки не записуються у файл! Натисніть «Скачати Excel» наприкінці.';el.className='save dirty'}
+  else{el.textContent=canWrite?'✓ Усе збережено у файл о '+new Date().toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'':'✓ Збережено';el.className='save'}
 }
 
 // ---------- відмітка ----------
@@ -281,14 +444,14 @@ function isIn(r){return String(r[S.map.status]).trim()!==''}
 async function checkIn(i){
   const r=S.rows[i]; r[S.map.status]='Так'; r[S.map.time]=now();
   dirty=true; persist(); clearTimeout(saveTimer); setSaveState(); render();
-  if(fileHandle)await save(false);
-  if(S.badge.auto)printBadge(r);
+  if(canWrite)await save(false);
+  if(S.badge.auto)await printBadge(r);
   toast('✓ '+displayName(r)+' – відмічено');
   const s=$('#search'); s.value=''; render(); s.focus();
 }
 function undo(i){
   const r=S.rows[i];
-  if(!confirm('Зняти відмітку з «'+displayName(r)+'»?'))return;
+  if(!confirm('Скасувати відмітку «Прийшов» для гостя '+displayName(r)+'?'))return;
   r[S.map.status]=''; r[S.map.time]=''; changed(); render();
 }
 function displayName(r){return String(get(r,'name')).replace(/\s+/g,' ').trim()}
@@ -309,7 +472,7 @@ function render(){
   const total=S.rows.length, inn=S.rows.filter(isIn).length, walk=S.rows.filter(r=>r[S.map.src]==='На місці').length;
   $('#sTotal').textContent=total; $('#sIn').textContent=inn; $('#sWalk').textContent=walk;
   if(!total)return;
-  if(!idx.length){$('#list').innerHTML='<div class="empty">Нікого не знайдено.<br><br><button class="ok" onclick="REG.walkIn()">+ Зареєструвати на місці</button></div>';return}
+  if(!idx.length){$('#list').innerHTML=q?`<div class="empty big">За запитом «${esc($('#search').value)}» нікого не знайдено.<br>Спробуйте інше написання, назву компанії або цифри телефону.<br><br>Гостя справді немає у списку?<br><br><button class="ok" onclick="REG.walkIn()">+ Зареєструвати гостя на місці</button></div>`:'<div class="empty">У цьому фільтрі поки нікого немає.</div>';return}
   idx.sort((a,b)=>norm(get(S.rows[a],'name')).localeCompare(norm(get(S.rows[b],'name')),'uk'));
   let h='<table><thead><tr><th>Учасник</th><th>Компанія</th><th>Посада</th><th>Контакти</th><th></th></tr></thead><tbody>';
   for(const i of idx){
@@ -320,8 +483,8 @@ function render(){
       <td class="small">${esc(get(r,'pos'))}</td>
       <td class="small">${esc(get(r,'email'))}<br>${esc(get(r,'phone'))}</td>
       <td class="act">${a
-        ?`<span class="time">✓ ${esc(r[S.map.time])}</span><button onclick="REG.print(${i})" title="Надрукувати ще раз">🖨</button> <button class="ghost" onclick="REG.edit(${i})" title="Редагувати">✎</button> <button class="ghost" onclick="REG.undo(${i})" title="Зняти відмітку">↺</button>`
-        :`<button class="ghost" onclick="REG.edit(${i})" title="Редагувати">✎</button> <button class="ok btn-in" onclick="REG.in(${i})">Прийшов ✓</button>`}</td></tr>`;
+        ?`<span class="time">✓ прийшов ${esc(String(r[S.map.time]).split(' ').pop())}</span><button class="sm" onclick="REG.print(${i})">Друк ще раз</button> <button class="sm" onclick="REG.edit(${i})">Змінити</button> <button class="sm ghost" onclick="REG.undo(${i})">Скасувати відмітку</button>`
+        :`<button class="sm ghost" onclick="REG.edit(${i})">Змінити</button> <button class="ok btn-in" onclick="REG.in(${i})">Прийшов ✓</button>`}</td></tr>`;
   }
   $('#list').innerHTML=h+'</tbody></table>';
 }
@@ -365,8 +528,8 @@ function validate(show){
 // ---------- редагування / реєстрація на місці ----------
 function openEdit(i){
   editIdx=i; const r=i===null?null:S.rows[i];
-  $('#mEditTitle').textContent=i===null?'Реєстрація на місці':'Редагування учасника';
-  $('#btnSaveEdit').textContent=i===null?'Зареєструвати і відмітити':'Зберегти';
+  $('#mEditTitle').textContent=i===null?'Реєстрація гостя на місці':'Змінити дані гостя';
+  $('#btnSaveEdit').textContent=i===null?'Зареєструвати і надрукувати бейдж':'Зберегти зміни';
   const q=$('#search').value.trim();
   $('#fName').value=r?displayName(r):(/\d|@/.test(q)?'':q.split(/\s+/).map(cap).join(' '));
   $('#fCompany').value=r?get(r,'company'):'';
@@ -404,7 +567,15 @@ function badgeHTML(r,scale){
     ${b.ft?`<div class="ft">${esc(b.ft)}</div>`:''}</div>`;
 }
 function applyPage(){$('#pageStyle').textContent=`@page{size:${S.badge.w}mm ${S.badge.h}mm;margin:0}`}
-function printBadge(r){
+function printHint(){ // підказка перед першим друком
+  if(KIOSK||S.badge.hintOff||printHintShown)return Promise.resolve();
+  return new Promise(ok=>{
+    $('#pHintOff').checked=false; $('#mPrint').classList.add('show'); $('#btnPrintGo').focus();
+    $('#btnPrintGo').onclick=()=>{printHintShown=true; if($('#pHintOff').checked){S.badge.hintOff=true;persist()} $('#mPrint').classList.remove('show'); ok()};
+  });
+}
+async function printBadge(r){
+  await printHint();
   // одне завдання друку = N етикеток (за замовчуванням 2: на обидва боки заготовки)
   const n=Math.max(1,Math.min(5,+S.badge.copies||2));
   applyPage(); $('#badgeArea').innerHTML=Array(n).fill(badgeHTML(r)).join('');
@@ -425,7 +596,7 @@ function drawPreview(){const r=S.rows.find(x=>displayName(x))||null;$('#previewW
 
 // ---------- дрібниці ----------
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2600)}
-function enable(){['#btnSave','#search','#btnWalkIn'].forEach(s=>$(s).disabled=false);setSaveState()}
+function enable(){setSaveState()}
 
 // ---------- події ----------
 $('#btnOpen').onclick=openFile;
@@ -441,7 +612,16 @@ $('#search').onkeydown=e=>{
   if(e.key==='Escape'){$('#search').value='';render()}
 };
 document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filters button').forEach(x=>x.classList.remove('on'));b.classList.add('on');S.filter=b.dataset.f;render()});
-$('#eventName').oninput=e=>{S.event=e.target.value;persist()};
+$('#eventName').oninput=e=>{S.event=e.target.value;persist();updateSetup()};
+$('#btnPerm').onclick=askPerm;
+$('#btnTest').onclick=async()=>{await printBadge(S.rows.find(x=>displayName(x))||null);$('#st4q').style.display='';};
+$('#btnTestOk').onclick=()=>{S.testDone=true;persist();$('#st4q').style.display='none';updateSetup();$('#btnStart').focus()};
+$('#btnTestBad').onclick=()=>{$('#st4q').style.display='none';openSettings()};
+$('#btnTestSkip').onclick=()=>{S.testDone=true;persist();updateSetup()};
+$('#btnStart').onclick=startWork;
+$('#btnBackSetup').onclick=e=>{e.preventDefault();backToSetup()};
+$('#btnHelp').onclick=()=>$('#mHelp').classList.add('show');
+$('#btnHelpClose').onclick=()=>$('#mHelp').classList.remove('show');
 $('#btnSwap').onclick=()=>{ // 2 слова: міняємо місцями; 3 слова: «Прізвище Ім'я По батькові» ⇄ «Ім'я По батькові Прізвище»
   let p=$('#fName').value.trim().split(/\s+/);const pat=/(вич|вна|ична|ічна)$/i;
   if(p.length===2)p=[p[1],p[0]];
@@ -458,18 +638,22 @@ $('#mEdit').onkeydown=e=>{if(e.key==='Enter')saveEdit();if(e.key==='Escape')$('#
 $('#btnSettings').onclick=openSettings;
 ['#sW','#sH','#sEv','#sNm','#sCo','#sAuto','#sFt','#sFts','#sCopies'].forEach(s=>$(s).oninput=readSettings);
 $('#btnTestPrint').onclick=()=>printBadge(S.rows.find(x=>displayName(x))||null);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('#mHelp.show,#mSet.show').forEach(m=>m.classList.remove('show'))});
 $('#btnCloseSet').onclick=()=>$('#mSet').classList.remove('show');
-window.addEventListener('beforeunload',e=>{if(dirty&&!fileHandle){e.preventDefault();e.returnValue=''}});
+window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 
 window.REG={in:checkIn,undo,edit:openEdit,print:i=>printBadge(S.rows[i]),walkIn:()=>openEdit(null)};
 
 // відновлення після перезапуску браузера
 restore();
-if(S.rows.length){
-  $('#eventName').value=S.event; enable(); render();
-  setSaveState('Відновлено «'+S.fileName+'» з минулої сесії. Натисніть «Зберегти Excel», щоб записати у файл.');
-  dirty=true;
-}
+(async()=>{
+  if(S.rows.length){
+    fileHandle=await idbGet(); await checkPerm(); dirty=true; if(canWrite)save(false);
+    $('#eventName').value=S.event; render();
+    toast('Відновлено список з минулого запуску: '+S.fileName);
+  }
+  updateSetup();
+})();
 })();
 </script>
 </body>
