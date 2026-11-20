@@ -475,8 +475,13 @@ async function checkIn(i){
 }
 function undo(i){
   const r=S.rows[i];
+  if(r[S.map.src]==='На місці'){
+    // гостя створили на заході: без відмітки «Прийшов» запис не має сенсу, тому прибираємо його повністю
+    if(!confirm('Гостя '+displayName(r)+' зареєстрували тут, на заході.\n\nСкасування відмітки видалить цей запис повністю, і з Excel-файлу теж.'))return;
+    S.rows.splice(i,1); changed(); render(); toast('Відмітку скасовано, запис видалено'); return;
+  }
   if(!confirm('Скасувати відмітку «Прийшов» для гостя '+displayName(r)+'?'))return;
-  r[S.map.status]=''; r[S.map.time]=''; changed(); render();
+  r[S.map.status]=''; r[S.map.time]=''; changed(); render(); toast('Відмітку скасовано');
 }
 function displayName(r){return String(get(r,'name')).replace(/\s+/g,' ').trim()}
 
@@ -493,7 +498,7 @@ function render(){
     if(q.split(' ').every(w=>hay.includes(w)))return true;
     return qd.length>=4&&String(get(r,'phone')).replace(/\D/g,'').includes(qd);
   });
-  const total=S.rows.length, inn=S.rows.filter(isIn).length, walk=S.rows.filter(r=>r[S.map.src]==='На місці').length;
+  const total=S.rows.length, inn=S.rows.filter(isIn).length, walk=S.rows.filter(r=>r[S.map.src]==='На місці'&&isIn(r)).length;
   $('#sTotal').textContent=total; $('#sIn').textContent=inn; $('#sWalk').textContent=walk;
   if(!total)return;
   if(!idx.length){$('#list').innerHTML=q?`<div class="empty big">За запитом «${esc($('#search').value)}» нікого не знайдено.<br>Спробуйте інше написання, назву компанії або цифри телефону.<br><br>Гостя справді немає у списку?<br><br><button class="ok" onclick="REG.walkIn()">+ Зареєструвати гостя на місці</button></div>`:'<div class="empty">У цьому фільтрі поки нікого немає.</div>';return}
