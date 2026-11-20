@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Event Registration – реєстрація учасників</title>
+<meta name="author" content="Volodymyr Huk, ELKO Ukraine · toshiba@elko.ua">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 :root{--bg:#f4f6f9;--card:#fff;--ink:#1d2330;--mute:#6b7385;--line:#e2e6ee;--accent:#0b5cad;--ok:#1f8a4c;--okbg:#e6f5ec;--warn:#b25b00}
@@ -23,7 +24,9 @@ button:disabled{opacity:.45;cursor:default}
 .stats b{color:var(--ink);font-size:18px}
 .save{font-size:13px;color:var(--mute);white-space:nowrap}
 .save.dirty{color:var(--warn)}
-main{padding:16px 20px;max-width:1300px;margin:0 auto}
+main{padding:16px 20px 50px;max-width:1300px;margin:0 auto}
+footer.copy{position:fixed;bottom:0;left:0;right:0;padding:6px 20px;font-size:12px;color:var(--mute);background:var(--bg);border-top:1px solid var(--line);text-align:center}
+footer.copy a{color:var(--mute)}
 .toolbar{display:flex;gap:10px;margin-bottom:12px;align-items:center}
 #search{flex:1;font-size:20px;padding:12px 14px}
 .filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
@@ -53,10 +56,12 @@ td.act{white-space:nowrap;text-align:right}
 .hint{font-size:12px;color:var(--mute)}
 /* бейдж */
 #badgeArea{display:none}
-.badge{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;overflow:hidden;padding:2.5mm 3mm;font-family:Arial,sans-serif;color:#000}
+.badge{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;overflow:hidden;padding:2.5mm 3mm;font-family:Arial,sans-serif;color:#000}
 .badge .ev{font-size:var(--evSize);text-transform:uppercase;letter-spacing:.4px;border-bottom:.3mm solid #000;padding-bottom:1mm;margin-bottom:2mm;width:100%}
 .badge .nm{font-size:var(--nmSize);font-weight:700;line-height:1.1}
 .badge .co{font-size:var(--coSize);margin-top:1.5mm}
+.badge .ft{position:absolute;left:0;right:0;bottom:1.2mm;font-size:var(--ftSize);line-height:1}
+.badge.hasft{padding-bottom:calc(var(--ftSize) + 2.5mm)}
 #preview{border:1px dashed #999;margin:10px auto 0;background:#fff;transform-origin:top center}
 @media print{
   body *{visibility:hidden}
@@ -127,6 +132,10 @@ td.act{white-space:nowrap;text-align:right}
     <div style="flex:1"><label>Ім'я, pt</label><input id="sNm" type="number" min="8" max="60"></div>
     <div style="flex:1"><label>Компанія, pt</label><input id="sCo" type="number" min="6" max="40"></div>
   </div>
+  <div class="row">
+    <div style="flex:4"><label>Нижній рядок етикетки</label><input id="sFt" type="text"></div>
+    <div style="flex:1"><label>Розмір, pt</label><input id="sFts" type="number" min="5" max="14"></div>
+  </div>
   <label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input id="sAuto" type="checkbox" style="width:auto"> Друкувати бейдж одразу після відмітки</label>
   <div id="previewWrap"></div>
   <div class="btns">
@@ -135,11 +144,14 @@ td.act{white-space:nowrap;text-align:right}
   </div>
 </div></div>
 
+<footer class="copy">Event Registration · © 2026 Володимир Гук, ELKO Ukraine · <a href="mailto:toshiba@elko.ua">toshiba@elko.ua</a></footer>
+
 <div id="badgeArea"></div>
 <div class="toast" id="toast"></div>
 
 <script src="vendor/xlsx.full.min.js"></script>
 <script>
+/*! Event Registration · © 2026 Volodymyr Huk, ELKO Ukraine · toshiba@elko.ua */
 (function(){
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -152,13 +164,13 @@ const C_STATUS='Присутність', C_TIME='Час прибуття', C_SRC
 let S={ // стан
   headers:[], rows:[], map:{}, sheetName:'Реєстрація', fileName:'',
   event:'', filter:'all',
-  badge:{w:90,h:55,ev:8,nm:20,co:12,auto:true}
+  badge:{w:90,h:55,ev:8,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:8}
 };
 let fileHandle=null, dirty=false, editIdx=null, saveTimer=null;
 
 // ---------- збереження стану в браузері (захист від випадкового закриття) ----------
 function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function restore(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j&&j.badge){S=Object.assign(S,j);S.badge=Object.assign({w:90,h:55,ev:8,nm:20,co:12,auto:true},j.badge)}}catch(e){}}
+function restore(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j&&j.badge){S=Object.assign(S,j);S.badge=Object.assign({w:90,h:55,ev:8,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:8},j.badge)}}catch(e){}}
 
 // ---------- розпізнавання колонок ----------
 function detect(headers){
@@ -210,7 +222,8 @@ async function load(buf,name){
   if(!S.event){S.event=name.replace(/\.[^.]+$/,'')}
   $('#eventName').value=S.event;
   dirty=false; persist(); enable(); render();
-  toast('Завантажено учасників: '+S.rows.length+(fileHandle?' · зміни зберігатимуться у цей самий файл':''));
+  toast('Завантажено учасників: '+S.rows.length+(fileHandle?' · кожна відмітка одразу записується у цей файл':''));
+  if(!fileHandle)setSaveState('Цей браузер не вміє записувати у файл. Відкрийте програму в Chrome або Edge, інакше зберігайте вручну.');
   $('#search').focus();
 }
 
@@ -223,40 +236,48 @@ function buildWb(){
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,S.sheetName.slice(0,31));
   return wb;
 }
+let saving=null, retryTimer=null;
 async function save(manual){
-  if(!S.rows.length)return;
-  try{
+  if(!S.rows.length)return true;
+  if(saving){await saving; if(!dirty&&!manual)return true}
+  saving=(async()=>{try{
     if(fileHandle){
       const out=XLSX.write(buildWb(),{bookType:'xlsx',type:'array'});
-      const w=await fileHandle.createWritable(); await w.write(out); await w.close();
-      dirty=false; setSaveState();
-      if(manual)toast('Збережено у «'+S.fileName+'»');
+      // запис і закриття файлу: після close() файл вільний, його можна відкрити в Excel
+      const w=await fileHandle.createWritable({keepExistingData:false}); await w.write(out); await w.close();
+      dirty=false; clearTimeout(retryTimer); setSaveState();
+      if(manual)toast('Збережено і закрито «'+S.fileName+'»');
     }else if(manual){
       XLSX.writeFile(buildWb(),S.fileName.replace(/\.[^.]+$/,'')+'_реєстрація.xlsx');
       dirty=false; setSaveState();
     }
+    return true;
   }catch(e){
-    setSaveState('Помилка запису: файл відкрито в Excel? Закрийте його й натисніть «Зберегти Excel».');
-  }
+    setSaveState('⚠ Не вдалося записати: файл відкрито в Excel. Закрийте його – програма повторить спробу сама.');
+    clearTimeout(retryTimer); retryTimer=setTimeout(()=>{if(dirty)save(false)},5000);
+    return false;
+  }})();
+  const ok=await saving; saving=null; return ok;
 }
 function changed(){
   dirty=true; persist(); setSaveState();
-  clearTimeout(saveTimer); if(fileHandle)saveTimer=setTimeout(()=>save(false),400);
+  clearTimeout(saveTimer); if(fileHandle)saveTimer=setTimeout(()=>save(false),300);
 }
 function setSaveState(msg){
   const el=$('#saveState');
   if(msg){el.textContent=msg;el.className='save dirty';return}
   if(!S.rows.length){el.textContent='';return}
   if(dirty){el.textContent=fileHandle?'Зберігаю…':'Є незбережені зміни';el.className='save dirty'}
-  else{el.textContent=fileHandle?'✓ Збережено у файл':'✓ Збережено';el.className='save'}
+  else{el.textContent=fileHandle?'✓ Збережено о '+new Date().toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+', файл закрито':'✓ Збережено';el.className='save'}
 }
 
 // ---------- відмітка ----------
 function now(){const d=new Date();return d.toLocaleDateString('uk-UA')+' '+d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}
 function isIn(r){return String(r[S.map.status]).trim()!==''}
-function checkIn(i){
+async function checkIn(i){
   const r=S.rows[i]; r[S.map.status]='Так'; r[S.map.time]=now();
-  changed(); render();
+  dirty=true; persist(); clearTimeout(saveTimer); setSaveState(); render();
+  if(fileHandle)await save(false);
   if(S.badge.auto)printBadge(r);
   toast('✓ '+displayName(r)+' – відмічено');
   const s=$('#search'); s.value=''; render(); s.focus();
@@ -372,10 +393,11 @@ function saveEdit(){
 // ---------- бейдж ----------
 function badgeHTML(r,scale){
   const b=S.badge;
-  return `<div class="badge" style="width:${b.w}mm;height:${b.h}mm;--evSize:${b.ev}pt;--nmSize:${b.nm}pt;--coSize:${b.co}pt">
+  return `<div class="badge${b.ft?' hasft':''}" style="width:${b.w}mm;height:${b.h}mm;--evSize:${b.ev}pt;--nmSize:${b.nm}pt;--coSize:${b.co}pt;--ftSize:${b.fts}pt">
     ${S.event?`<div class="ev">${esc(S.event)}</div>`:''}
     <div class="nm">${esc(r?displayName(r):'Олександр Петренко')}</div>
-    <div class="co">${esc(r?get(r,'company'):'ТОВ «Компанія»')}</div></div>`;
+    <div class="co">${esc(r?get(r,'company'):'ТОВ «Компанія»')}</div>
+    ${b.ft?`<div class="ft">${esc(b.ft)}</div>`:''}</div>`;
 }
 function applyPage(){$('#pageStyle').textContent=`@page{size:${S.badge.w}mm ${S.badge.h}mm;margin:0}`}
 function printBadge(r){
@@ -388,10 +410,10 @@ function printBadge(r){
   setTimeout(()=>window.print(),50);
 }
 function openSettings(){
-  const b=S.badge; $('#sW').value=b.w;$('#sH').value=b.h;$('#sEv').value=b.ev;$('#sNm').value=b.nm;$('#sCo').value=b.co;$('#sAuto').checked=b.auto;
+  const b=S.badge; $('#sW').value=b.w;$('#sH').value=b.h;$('#sEv').value=b.ev;$('#sNm').value=b.nm;$('#sCo').value=b.co;$('#sAuto').checked=b.auto;$('#sFt').value=b.ft;$('#sFts').value=b.fts;
   drawPreview(); $('#mSet').classList.add('show');
 }
-function readSettings(){const b=S.badge;b.w=+$('#sW').value||90;b.h=+$('#sH').value||55;b.ev=+$('#sEv').value||8;b.nm=+$('#sNm').value||20;b.co=+$('#sCo').value||12;b.auto=$('#sAuto').checked;persist();drawPreview()}
+function readSettings(){const b=S.badge;b.w=+$('#sW').value||90;b.h=+$('#sH').value||55;b.ev=+$('#sEv').value||8;b.nm=+$('#sNm').value||20;b.co=+$('#sCo').value||12;b.auto=$('#sAuto').checked;b.ft=$('#sFt').value;b.fts=+$('#sFts').value||8;persist();drawPreview()}
 function drawPreview(){const r=S.rows.find(x=>displayName(x))||null;$('#previewWrap').innerHTML='<label>Попередній перегляд</label><div id="preview" style="width:'+S.badge.w+'mm">'+badgeHTML(r)+'</div>'}
 
 // ---------- дрібниці ----------
@@ -427,7 +449,7 @@ $('#btnCancelEdit').onclick=()=>$('#mEdit').classList.remove('show');
 $('#btnSaveEdit').onclick=saveEdit;
 $('#mEdit').onkeydown=e=>{if(e.key==='Enter')saveEdit();if(e.key==='Escape')$('#mEdit').classList.remove('show')};
 $('#btnSettings').onclick=openSettings;
-['#sW','#sH','#sEv','#sNm','#sCo','#sAuto'].forEach(s=>$(s).oninput=readSettings);
+['#sW','#sH','#sEv','#sNm','#sCo','#sAuto','#sFt','#sFts'].forEach(s=>$(s).oninput=readSettings);
 $('#btnTestPrint').onclick=()=>printBadge(S.rows.find(x=>displayName(x))||null);
 $('#btnCloseSet').onclick=()=>$('#mSet').classList.remove('show');
 window.addEventListener('beforeunload',e=>{if(dirty&&!fileHandle){e.preventDefault();e.returnValue=''}});
