@@ -79,6 +79,13 @@ td.act{white-space:nowrap;text-align:right}
 .dlg .row{display:flex;gap:8px;align-items:center}
 .dlg input.bad{border-color:#c62828;background:#fff6f6}
 .dlg .msg{color:#c62828;font-size:12px;min-height:15px;margin-top:3px}
+.dup{display:none;background:#fff6e5;border:1px solid #f0c27a;border-radius:8px;padding:12px 14px;margin-top:14px}
+.dup.show{display:block}
+.dup b{font-size:15px}
+.dup .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button.danger{color:#c62828;border-color:#f1c4c4}
+button.danger:hover{border-color:#c62828;background:#fff6f6}
+.tag.dupt{background:#fde7e7;color:#c62828}
 .dlg .btns{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:6px;opacity:0;transition:.25s;z-index:30;pointer-events:none}
 .toast.show{opacity:1}
@@ -191,7 +198,9 @@ td.act{white-space:nowrap;text-align:right}
   <label>Мобільний телефон</label><input id="fPhone" type="tel" placeholder="+380 67 123 45 67">
   <div class="msg" id="ePhone"></div>
   <label>Примітки</label><input id="fNote" type="text">
+  <div class="dup" id="dupBox"></div>
   <div class="btns">
+    <button type="button" id="btnDelete" class="danger" style="margin-right:auto">Видалити запис</button>
     <button type="button" id="btnCancelEdit">Скасувати</button>
     <button type="button" id="btnSaveEdit" class="primary">Зберегти</button>
   </div>
@@ -247,6 +256,8 @@ td.act{white-space:nowrap;text-align:right}
   <h3>Якщо щось пішло не так</h3>
   <p><b>Бейдж не надрукувався або зіпсувався.</b> Знайдіть гостя (фільтр «Прийшли») і натисніть «Друк ще раз».</p>
   <p><b>Відмітили не ту людину.</b> Натисніть «Скасувати відмітку» в її рядку.</p>
+  <p><b>Помилковий або зайвий запис.</b> «Змінити» → «Видалити запис». Позначка «можливий дубль» підказує, що в списку є схожий гість.</p>
+  <p><b>Програма каже «Схоже, цей гість уже є у списку».</b> Якщо це та сама людина, натисніть «Це він – відмітити». Якщо однофамілець – «Це інша людина».</p>
   <p><b>Помилка в імені чи компанії.</b> Кнопка «Змінити» в рядку гостя, виправте і збережіть, потім «Друк ще раз».</p>
   <p><b>Вгорі жовте попередження «Не вдалося записати».</b> Excel-файл відкрито в іншій програмі. Закрийте Excel, програма допише відмітки сама.</p>
   <p><b>Браузер закрився або ноутбук перезавантажився.</b> Відкрийте програму знову: усі відмітки на місці. Пройдіть крок 2 «Дозволити запис у файл» ще раз.</p>
@@ -442,7 +453,8 @@ function setSaveState(msg){
 function now(){const d=new Date();return d.toLocaleDateString('uk-UA')+' '+d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}
 function isIn(r){return String(r[S.map.status]).trim()!==''}
 async function checkIn(i){
-  const r=S.rows[i]; r[S.map.status]='Так'; r[S.map.time]=now();
+  const r=S.rows[i]; if(!r||isIn(r))return; // уже відмічений – вдруге не відмічаємо
+  r[S.map.status]='Так'; r[S.map.time]=now();
   dirty=true; persist(); clearTimeout(saveTimer); setSaveState(); render();
   if(canWrite)await save(false);
   if(S.badge.auto)await printBadge(r);
@@ -474,11 +486,12 @@ function render(){
   if(!total)return;
   if(!idx.length){$('#list').innerHTML=q?`<div class="empty big">За запитом «${esc($('#search').value)}» нікого не знайдено.<br>Спробуйте інше написання, назву компанії або цифри телефону.<br><br>Гостя справді немає у списку?<br><br><button class="ok" onclick="REG.walkIn()">+ Зареєструвати гостя на місці</button></div>`:'<div class="empty">У цьому фільтрі поки нікого немає.</div>';return}
   idx.sort((a,b)=>norm(get(S.rows[a],'name')).localeCompare(norm(get(S.rows[b],'name')),'uk'));
+  const dups=dupMap();
   let h='<table><thead><tr><th>Учасник</th><th>Компанія</th><th>Посада</th><th>Контакти</th><th></th></tr></thead><tbody>';
   for(const i of idx){
     const r=S.rows[i], a=isIn(r);
     h+=`<tr class="${a?'arrived':''}">
-      <td class="name">${esc(displayName(r))}${r[S.map.src]==='На місці'?'<span class="tag">на місці</span>':''}</td>
+      <td class="name">${esc(displayName(r))}${r[S.map.src]==='На місці'?'<span class="tag">на місці</span>':''}${dups.has(i)?'<span class="tag dupt" title="У списку є схожий запис (той самий email, телефон або ім\'я). Перевірте і зайвий видаліть: «Змінити» → «Видалити запис»">можливий дубль</span>':''}</td>
       <td>${esc(get(r,'company'))}</td>
       <td class="small">${esc(get(r,'pos'))}</td>
       <td class="small">${esc(get(r,'email'))}<br>${esc(get(r,'phone'))}</td>
@@ -538,10 +551,67 @@ function openEdit(i){
   $('#fPhone').value=phoneFmt(phoneDigits(r?get(r,'phone'):(/^[\d\s+()-]{7,}$/.test(q)?q:'')));
   ['Name','Company','Email','Phone'].forEach(k=>mark(k,''));
   $('#fNote').value=r?get(r,'note'):'';
+  dupOverride=false; $('#dupBox').classList.remove('show'); $('#dupBox').innerHTML='';
+  $('#btnDelete').style.display=i===null?'none':'';
   $('#mEdit').classList.add('show'); $('#fName').focus();
 }
-function saveEdit(){
+// ---------- пошук дублів ----------
+function nameWords(v){return norm(v).replace(/[^a-zа-щьюяґєії' -]/gi,' ').split(/\s+/).filter(w=>w.length>1)}
+function sameName(a,b){ // збігаються щонайменше 2 слова (порядок і по батькові не важливі)
+  const A=nameWords(a), B=nameWords(b); if(A.length<2||B.length<2)return false;
+  return A.filter(w=>B.includes(w)).length>=2;
+}
+function findDup(f,except){
+  const em=norm(f.email), ph=phoneDigits(f.phone);
+  for(let i=0;i<S.rows.length;i++){
+    if(i===except)continue; const r=S.rows[i];
+    if(em&&norm(get(r,'email'))===em)return {i,why:'той самий email'};
+    if(ph.length===9&&phoneDigits(get(r,'phone'))===ph)return {i,why:'той самий телефон'};
+    if(sameName(f.name,get(r,'name')))return {i,why:"те саме ім'я та прізвище"};
+  }
+  return null;
+}
+function dupMap(){ // рядки, що повторюються у самому файлі (форму заповнили двічі)
+  const seen={}, d=new Set();
+  S.rows.forEach((r,i)=>{
+    const keys=[norm(get(r,'email')), phoneDigits(get(r,'phone')).length===9?'t'+phoneDigits(get(r,'phone')):'', 'n'+nameWords(get(r,'name')).sort().join(' ')].filter(k=>k&&k!=='n');
+    keys.forEach(k=>{if(k in seen){d.add(i);d.add(seen[k])}else seen[k]=i});
+  });
+  return d;
+}
+let dupOverride=false, editBusy=false;
+function showDup(d){
+  const r=S.rows[d.i], a=isIn(r), walk=editIdx===null;
+  $('#dupBox').innerHTML=`<b>Схоже, цей гість уже є у списку</b> (${d.why}):<br>
+    <span class="big">${esc(displayName(r))} · ${esc(get(r,'company'))}</span><br>
+    ${a?`<span style="color:var(--ok);font-weight:600">✓ Уже прийшов о ${esc(String(r[S.map.time]).split(' ').pop())}</span>`:'Ще не відмічений'}
+    <div class="acts">
+      ${walk?(a?`<button class="primary sm" id="dupPrint">Це він – надрукувати бейдж ще раз</button>`
+               :`<button class="ok sm" id="dupUse">Це він – відмітити «Прийшов»</button>`):''}
+      <button class="sm" id="dupOther">Це інша людина – все одно зберегти</button>
+    </div>`;
+  $('#dupBox').classList.add('show');
+  const close=()=>{$('#mEdit').classList.remove('show');const s=$('#search');s.value='';render();s.focus()};
+  if($('#dupUse'))$('#dupUse').onclick=()=>{close();checkIn(d.i)};
+  if($('#dupPrint'))$('#dupPrint').onclick=()=>{close();printBadge(r)};
+  $('#dupOther').onclick=()=>{dupOverride=true;saveEdit()};
+  ($('#dupUse')||$('#dupPrint')||$('#dupOther')).focus();
+}
+function deleteRow(){
+  if(editIdx===null)return; const r=S.rows[editIdx];
+  if(!confirm('Видалити запис «'+displayName(r)+'» ('+get(r,'company')+')?\n\nЗапис зникне і з Excel-файлу. Скасувати це не можна.'))return;
+  S.rows.splice(editIdx,1); editIdx=null;
+  $('#mEdit').classList.remove('show'); changed(); render(); toast('Запис видалено');
+}
+
+async function saveEdit(){
+  if(!$('#mEdit').classList.contains('show')||editBusy)return; // захист від подвійного Enter / кліку
   if(!validate(true)){const b=document.querySelector('#mEdit input.bad');if(b)b.focus();return}
+  if(!dupOverride){
+    const d=findDup({name:$('#fName').value,email:$('#fEmail').value,phone:$('#fPhone').value},editIdx);
+    if(d){showDup(d);return}
+  }
+  editBusy=true; setTimeout(()=>editBusy=false,800);
   const name=$('#fName').value.trim().split(/\s+/).map(cap).join(' ');
   const phone='+380'+phoneDigits($('#fPhone').value);
   let r;
@@ -554,7 +624,7 @@ function saveEdit(){
   set(r,'email',$('#fEmail').value.trim().toLowerCase()); set(r,'phone',phone);
   if(S.map.note>=0)set(r,'note',$('#fNote').value.trim());
   $('#mEdit').classList.remove('show');
-  if(editIdx===null){checkIn(S.rows.length-1)}else{changed();render()}
+  if(editIdx===null){$('#search').value='';checkIn(S.rows.length-1)}else{changed();render();toast('Зміни збережено')}
 }
 
 // ---------- бейдж ----------
@@ -633,8 +703,10 @@ $('#fPhone').onkeydown=e=>{const el=e.target;if((e.key==='Backspace'&&el.selecti
 $('#fName').onblur=()=>{const v=$('#fName').value.trim();if(v)$('#fName').value=v.split(/\s+/).map(cap).join(' ')};
 ['#fName','#fCompany','#fEmail'].forEach(s=>$(s).addEventListener('input',()=>{if($(s).classList.contains('bad'))validate(true)}));
 $('#btnCancelEdit').onclick=()=>$('#mEdit').classList.remove('show');
-$('#btnSaveEdit').onclick=saveEdit;
-$('#mEdit').onkeydown=e=>{if(e.key==='Enter')saveEdit();if(e.key==='Escape')$('#mEdit').classList.remove('show')};
+$('#btnSaveEdit').onclick=()=>{dupOverride=false;saveEdit()};
+$('#btnDelete').onclick=deleteRow;
+['#fName','#fEmail','#fPhone'].forEach(s=>$(s).addEventListener('input',()=>{dupOverride=false;$('#dupBox').classList.remove('show')}));
+$('#mEdit').onkeydown=e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT'){e.preventDefault();if(!e.repeat)saveEdit()}if(e.key==='Escape')$('#mEdit').classList.remove('show')};
 $('#btnSettings').onclick=openSettings;
 ['#sW','#sH','#sEv','#sNm','#sCo','#sAuto','#sFt','#sFts','#sCopies'].forEach(s=>$(s).oninput=readSettings);
 $('#btnTestPrint').onclick=()=>printBadge(S.rows.find(x=>displayName(x))||null);
