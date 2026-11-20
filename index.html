@@ -85,7 +85,16 @@ td.act{white-space:nowrap;text-align:right}
 .dup .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 button.danger{color:#c62828;border-color:#f1c4c4}
 button.danger:hover{border-color:#c62828;background:#fff6f6}
-.tag.dupt{background:#fde7e7;color:#c62828}
+.tag.dupt{background:#fde7e7;color:#c62828;border:1px solid #f1c4c4;cursor:pointer;font:inherit;font-size:11px;padding:2px 6px}
+.tag.dupt:hover{border-color:#c62828}
+.dupcards{display:flex;gap:12px;flex-wrap:wrap;max-height:60vh;overflow:auto}
+.dupcard{flex:1 1 260px;border:1px solid var(--line);border-radius:8px;padding:12px}
+.dupcard.arrived{background:var(--okbg)}
+.dupcard .nm2{font-weight:700;font-size:16px;margin-bottom:6px}
+.dupcard table.kv{border:0;background:transparent;font-size:13px;width:100%}
+.dupcard table.kv td{border:0;padding:2px 4px;vertical-align:top}
+.dupcard table.kv td:first-child{color:var(--mute);width:80px}
+.dupcard .acts{margin-top:10px;display:flex;gap:6px}
 .dlg .btns{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:6px;opacity:0;transition:.25s;z-index:30;pointer-events:none}
 .toast.show{opacity:1}
@@ -231,6 +240,9 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
   </div>
 </div></div>
 
+<!-- порівняння дублів -->
+<div class="modal" id="mDup"><div class="dlg wide" id="mDupBody"></div></div>
+
 <!-- підказка перед друком -->
 <div class="modal" id="mPrint"><div class="dlg">
   <h2>Зараз відкриється вікно друку</h2>
@@ -256,7 +268,7 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
   <h3>Якщо щось пішло не так</h3>
   <p><b>Бейдж не надрукувався або зіпсувався.</b> Знайдіть гостя (фільтр «Прийшли») і натисніть «Друк ще раз».</p>
   <p><b>Відмітили не ту людину.</b> Натисніть «Скасувати відмітку» в її рядку.</p>
-  <p><b>Помилковий або зайвий запис.</b> «Змінити» → «Видалити запис». Позначка «можливий дубль» підказує, що в списку є схожий гість.</p>
+  <p><b>Помилковий або зайвий запис.</b> «Змінити» → «Видалити запис». Позначка «⚠ можливий дубль – розібратися» відкриває порівняння схожих записів: зайвий можна видалити або виправити прямо там.</p>
   <p><b>Програма каже «Схоже, цей гість уже є у списку».</b> Якщо це та сама людина, натисніть «Це він – відмітити». Якщо однофамілець – «Це інша людина». Однофамільця можна зберегти лише з його власними email і телефоном: якщо вони збігаються з кимось у списку, програма не дасть зберегти.</p>
   <p><b>Помилка в імені чи компанії.</b> Кнопка «Змінити» в рядку гостя, виправте і збережіть, потім «Друк ще раз».</p>
   <p><b>Вгорі жовте попередження «Не вдалося записати».</b> Excel-файл відкрито в іншій програмі. Закрийте Excel, програма допише відмітки сама.</p>
@@ -486,12 +498,12 @@ function render(){
   if(!total)return;
   if(!idx.length){$('#list').innerHTML=q?`<div class="empty big">За запитом «${esc($('#search').value)}» нікого не знайдено.<br>Спробуйте інше написання, назву компанії або цифри телефону.<br><br>Гостя справді немає у списку?<br><br><button class="ok" onclick="REG.walkIn()">+ Зареєструвати гостя на місці</button></div>`:'<div class="empty">У цьому фільтрі поки нікого немає.</div>';return}
   idx.sort((a,b)=>norm(get(S.rows[a],'name')).localeCompare(norm(get(S.rows[b],'name')),'uk'));
-  const dups=dupMap();
+  const dups=dupGroups();
   let h='<table><thead><tr><th>Учасник</th><th>Компанія</th><th>Посада</th><th>Контакти</th><th></th></tr></thead><tbody>';
   for(const i of idx){
     const r=S.rows[i], a=isIn(r);
     h+=`<tr class="${a?'arrived':''}">
-      <td class="name">${esc(displayName(r))}${r[S.map.src]==='На місці'?'<span class="tag">на місці</span>':''}${dups.has(i)?'<span class="tag dupt" title="У списку є схожий запис (той самий email, телефон або ім\'я). Перевірте і зайвий видаліть: «Змінити» → «Видалити запис»">можливий дубль</span>':''}</td>
+      <td class="name">${esc(displayName(r))}${r[S.map.src]==='На місці'?'<span class="tag">на місці</span>':''}${dups.has(i)?`<button class="tag dupt" onclick="REG.dup(${i})" title="У списку є схожий запис. Натисніть, щоб порівняти і видалити або виправити зайвий">⚠ можливий дубль – розібратися</button>`:''}</td>
       <td>${esc(get(r,'company'))}</td>
       <td class="small">${esc(get(r,'pos'))}</td>
       <td class="small">${esc(get(r,'email'))}<br>${esc(get(r,'phone'))}</td>
@@ -551,7 +563,7 @@ function openEdit(i){
   $('#fPhone').value=phoneFmt(phoneDigits(r?get(r,'phone'):(/^[\d\s+()-]{7,}$/.test(q)?q:'')));
   ['Name','Company','Email','Phone'].forEach(k=>mark(k,''));
   $('#fNote').value=r?get(r,'note'):'';
-  dupOverride=false; $('#dupBox').classList.remove('show'); $('#dupBox').innerHTML='';
+  dupOverride=false; editBusy=false; $('#dupBox').classList.remove('show'); $('#dupBox').innerHTML='';
   $('#btnDelete').style.display=i===null?'none':'';
   $('#mEdit').classList.add('show'); $('#fName').focus();
 }
@@ -575,13 +587,54 @@ function findDup(f,except,skipName){
   }
   return null;
 }
-function dupMap(){ // рядки, що повторюються у самому файлі (форму заповнили двічі)
-  const seen={}, d=new Set();
-  S.rows.forEach((r,i)=>{
-    const keys=[norm(get(r,'email')), phoneDigits(get(r,'phone')).length===9?'t'+phoneDigits(get(r,'phone')):'', 'n'+nameWords(get(r,'name')).sort().join(' ')].filter(k=>k&&k!=='n');
-    keys.forEach(k=>{if(k in seen){d.add(i);d.add(seen[k])}else seen[k]=i});
-  });
-  return d;
+// ---------- групи можливих дублів у списку ----------
+function rowKey(r){return norm(get(r,'email'))+'#'+phoneDigits(get(r,'phone'))+'#'+nameWords(get(r,'name')).sort().join(' ')}
+function pairKey(a,b){return [rowKey(a),rowKey(b)].sort().join('||')}
+function dupReason(a,b){ // що саме збігається у двох записів
+  const w=[];
+  const ea=norm(get(a,'email')), pa=phoneDigits(get(a,'phone'));
+  if(ea&&ea===norm(get(b,'email')))w.push('email');
+  if(pa.length===9&&pa===phoneDigits(get(b,'phone')))w.push('телефон');
+  if(sameName(get(a,'name'),get(b,'name')))w.push("ім'я");
+  return w;
+}
+function dupGroups(){ // Map: індекс рядка → номер групи
+  const n=S.rows.length, par=[...Array(n).keys()], f=x=>par[x]===x?x:(par[x]=f(par[x]));
+  const ign=new Set(S.notDup||[]);
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+    const w=dupReason(S.rows[i],S.rows[j]); if(!w.length)continue;
+    if(w.length===1&&w[0]==="ім'я"&&ign.has(pairKey(S.rows[i],S.rows[j])))continue; // позначили як різних людей
+    par[f(i)]=f(j);
+  }
+  const cnt={}; for(let i=0;i<n;i++){const g=f(i);cnt[g]=(cnt[g]||0)+1}
+  const m=new Map(); for(let i=0;i<n;i++){const g=f(i);if(cnt[g]>1)m.set(i,g)}
+  return m;
+}
+function openDupGroup(i){
+  const m=dupGroups(), g=m.get(i); if(g===undefined){toast('Дублів більше немає');return}
+  const idx=[...m.keys()].filter(k=>m.get(k)===g);
+  const hard=idx.some(a=>idx.some(b=>a!==b&&dupReason(S.rows[a],S.rows[b]).some(x=>x!=="ім'я")));
+  const F=(r,k)=>esc(get(r,k))||'<span class="hint">—</span>';
+  let h=`<h2>Можливі дублі: ${idx.length} записи</h2>
+    <div class="d hint" style="margin-bottom:10px">Збігається: ${esc([...new Set(idx.flatMap(a=>idx.filter(b=>b!==a).flatMap(b=>dupReason(S.rows[a],S.rows[b]))))].join(', '))}. Залиште правильний запис, зайвий видаліть або виправте.</div>
+    <div class="dupcards">`;
+  for(const k of idx){const r=S.rows[k];
+    h+=`<div class="dupcard${isIn(r)?' arrived':''}">
+      <div class="nm2">${esc(displayName(r))}</div>
+      <table class="kv"><tr><td>Компанія</td><td>${F(r,'company')}</td></tr><tr><td>Посада</td><td>${F(r,'pos')}</td></tr>
+      <tr><td>Email</td><td>${F(r,'email')}</td></tr><tr><td>Телефон</td><td>${F(r,'phone')}</td></tr>
+      <tr><td>Джерело</td><td>${esc(r[S.map.src]||'')}${S.map.num>=0&&r[S.map.num]!==''?' · №'+esc(r[S.map.num]):''}</td></tr>
+      <tr><td>Статус</td><td>${isIn(r)?'<b style="color:var(--ok)">✓ прийшов '+esc(String(r[S.map.time]).split(' ').pop())+'</b>':'ще не прийшов'}</td></tr></table>
+      <div class="acts"><button class="sm" onclick="REG.dupEdit(${k})">Виправити</button> <button class="sm danger" onclick="REG.dupDel(${k},${i})">Видалити цей запис</button></div>
+    </div>`}
+  h+=`</div><div class="btns">${hard?'<span class="hint" style="margin-right:auto;align-self:center">Однакові email або телефон: це той самий гість, один запис треба видалити або виправити.</span>':`<button class="sm" style="margin-right:auto" onclick="REG.notDup(${i})">Це різні люди</button>`}<button class="primary" onclick="REG.dupClose()">Закрити</button></div>`;
+  $('#mDupBody').innerHTML=h; $('#mDup').classList.add('show');
+}
+function delAt(k){
+  const r=S.rows[k];
+  const warn=isIn(r)?'\n\nУвага: цей гість уже відмічений як «Прийшов».':'';
+  if(!confirm('Видалити запис «'+displayName(r)+'» ('+(get(r,'company')||'без компанії')+', '+(get(r,'email')||'без email')+')?'+warn+'\n\nЗапис зникне і з Excel-файлу. Скасувати це не можна.'))return false;
+  S.rows.splice(k,1); changed(); render(); toast('Запис видалено'); return true;
 }
 let dupOverride=false, editBusy=false;
 function showDup(d){
@@ -593,6 +646,7 @@ function showDup(d){
       ${walk?(a?`<button class="primary sm" id="dupPrint">Це він – надрукувати бейдж ще раз</button>`
                :`<button class="ok sm" id="dupUse">Це він – відмітити «Прийшов»</button>`):''}
       ${d.hard?'':'<button class="sm" id="dupOther">Це інша людина – зберегти</button>'}
+      ${walk?'':'<button class="sm danger" id="dupDelOther">Видалити запис вище</button> <button class="sm" id="dupCompare">Порівняти записи</button>'}
     </div>
     ${d.hard?`<div class="msg" style="margin-top:8px">${d.field==='Email'?'Цей email':'Цей телефон'} уже належить гостю вище. Якщо це інша людина, впишіть її власні email і телефон: компанія та посада можуть збігатися, а email і телефон – ні.${walk?'':' Якщо це той самий гість, видаліть зайвий запис.'}</div>`:''}`;
   if(d.hard)mark(d.field,d.field==='Email'?'Такий email уже є у списку':'Такий телефон уже є у списку');
@@ -601,13 +655,14 @@ function showDup(d){
   if($('#dupUse'))$('#dupUse').onclick=()=>{close();checkIn(d.i)};
   if($('#dupPrint'))$('#dupPrint').onclick=()=>{close();printBadge(r)};
   if($('#dupOther'))$('#dupOther').onclick=()=>{dupOverride=true;saveEdit()};
+  if($('#dupDelOther'))$('#dupDelOther').onclick=()=>{const cur=S.rows[editIdx];if(delAt(d.i)){editIdx=S.rows.indexOf(cur);$('#dupBox').classList.remove('show');mark('Email','');mark('Phone','');toast('Зайвий запис видалено. Тепер можна зберегти зміни.')}};
+  if($('#dupCompare'))$('#dupCompare').onclick=()=>{const k=editIdx;$('#mEdit').classList.remove('show');openDupGroup(k)};
   const fb=$('#dupUse')||$('#dupPrint')||$('#dupOther'); if(fb)fb.focus(); else $('#f'+d.field).focus();
 }
 function deleteRow(){
-  if(editIdx===null)return; const r=S.rows[editIdx];
-  if(!confirm('Видалити запис «'+displayName(r)+'» ('+get(r,'company')+')?\n\nЗапис зникне і з Excel-файлу. Скасувати це не можна.'))return;
-  S.rows.splice(editIdx,1); editIdx=null;
-  $('#mEdit').classList.remove('show'); changed(); render(); toast('Запис видалено');
+  if(editIdx===null)return;
+  if(!delAt(editIdx))return;
+  editIdx=null; $('#mEdit').classList.remove('show');
 }
 
 async function saveEdit(){
@@ -715,11 +770,17 @@ $('#mEdit').onkeydown=e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT'){e.prev
 $('#btnSettings').onclick=openSettings;
 ['#sW','#sH','#sEv','#sNm','#sCo','#sAuto','#sFt','#sFts','#sCopies'].forEach(s=>$(s).oninput=readSettings);
 $('#btnTestPrint').onclick=()=>printBadge(S.rows.find(x=>displayName(x))||null);
-document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('#mHelp.show,#mSet.show').forEach(m=>m.classList.remove('show'))});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('#mHelp.show,#mSet.show,#mDup.show').forEach(m=>m.classList.remove('show'))});
 $('#btnCloseSet').onclick=()=>$('#mSet').classList.remove('show');
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 
-window.REG={in:checkIn,undo,edit:openEdit,print:i=>printBadge(S.rows[i]),walkIn:()=>openEdit(null)};
+window.REG={dup:openDupGroup,dupClose:()=>{$('#mDup').classList.remove('show')},
+  dupEdit:k=>{$('#mDup').classList.remove('show');openEdit(k)},
+  dupDel:(k,i)=>{const anchor=S.rows[i===k?-1:i];if(!delAt(k))return;const ni=anchor?S.rows.indexOf(anchor):-1;
+    const m=dupGroups();const left=[...m.keys()].find(x=>ni>=0?x===ni:false);if(left!==undefined)openDupGroup(left);else{$('#mDup').classList.remove('show');toast('Дубль прибрано')}},
+  notDup:i=>{const m=dupGroups(),g=m.get(i),idx=[...m.keys()].filter(k=>m.get(k)===g);S.notDup=S.notDup||[];
+    idx.forEach(a=>idx.forEach(b=>{if(a<b)S.notDup.push(pairKey(S.rows[a],S.rows[b]))}));persist();$('#mDup').classList.remove('show');render();toast('Позначено як різних людей')},
+  in:checkIn,undo,edit:openEdit,print:i=>printBadge(S.rows[i]),walkIn:()=>openEdit(null)};
 
 // відновлення після перезапуску браузера
 restore();
