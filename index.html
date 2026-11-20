@@ -257,7 +257,7 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
   <p><b>Бейдж не надрукувався або зіпсувався.</b> Знайдіть гостя (фільтр «Прийшли») і натисніть «Друк ще раз».</p>
   <p><b>Відмітили не ту людину.</b> Натисніть «Скасувати відмітку» в її рядку.</p>
   <p><b>Помилковий або зайвий запис.</b> «Змінити» → «Видалити запис». Позначка «можливий дубль» підказує, що в списку є схожий гість.</p>
-  <p><b>Програма каже «Схоже, цей гість уже є у списку».</b> Якщо це та сама людина, натисніть «Це він – відмітити». Якщо однофамілець – «Це інша людина».</p>
+  <p><b>Програма каже «Схоже, цей гість уже є у списку».</b> Якщо це та сама людина, натисніть «Це він – відмітити». Якщо однофамілець – «Це інша людина». Однофамільця можна зберегти лише з його власними email і телефоном: якщо вони збігаються з кимось у списку, програма не дасть зберегти.</p>
   <p><b>Помилка в імені чи компанії.</b> Кнопка «Змінити» в рядку гостя, виправте і збережіть, потім «Друк ще раз».</p>
   <p><b>Вгорі жовте попередження «Не вдалося записати».</b> Excel-файл відкрито в іншій програмі. Закрийте Excel, програма допише відмітки сама.</p>
   <p><b>Браузер закрився або ноутбук перезавантажився.</b> Відкрийте програму знову: усі відмітки на місці. Пройдіть крок 2 «Дозволити запис у файл» ще раз.</p>
@@ -561,13 +561,17 @@ function sameName(a,b){ // збігаються щонайменше 2 слов�
   const A=nameWords(a), B=nameWords(b); if(A.length<2||B.length<2)return false;
   return A.filter(w=>B.includes(w)).length>=2;
 }
-function findDup(f,except){
+function findDup(f,except,skipName){
+  // спершу унікальні ідентифікатори (email, телефон) по всьому списку, потім ім'я
   const em=norm(f.email), ph=phoneDigits(f.phone);
   for(let i=0;i<S.rows.length;i++){
     if(i===except)continue; const r=S.rows[i];
-    if(em&&norm(get(r,'email'))===em)return {i,why:'той самий email'};
-    if(ph.length===9&&phoneDigits(get(r,'phone'))===ph)return {i,why:'той самий телефон'};
-    if(sameName(f.name,get(r,'name')))return {i,why:"те саме ім'я та прізвище"};
+    if(em&&norm(get(r,'email'))===em)return {i,why:'той самий email',hard:true,field:'Email'};
+    if(ph.length===9&&phoneDigits(get(r,'phone'))===ph)return {i,why:'той самий телефон',hard:true,field:'Phone'};
+  }
+  if(skipName)return null;
+  for(let i=0;i<S.rows.length;i++){
+    if(i!==except&&sameName(f.name,get(S.rows[i],'name')))return {i,why:"те саме ім'я та прізвище",hard:false};
   }
   return null;
 }
@@ -588,14 +592,16 @@ function showDup(d){
     <div class="acts">
       ${walk?(a?`<button class="primary sm" id="dupPrint">Це він – надрукувати бейдж ще раз</button>`
                :`<button class="ok sm" id="dupUse">Це він – відмітити «Прийшов»</button>`):''}
-      <button class="sm" id="dupOther">Це інша людина – все одно зберегти</button>
-    </div>`;
+      ${d.hard?'':'<button class="sm" id="dupOther">Це інша людина – зберегти</button>'}
+    </div>
+    ${d.hard?`<div class="msg" style="margin-top:8px">${d.field==='Email'?'Цей email':'Цей телефон'} уже належить гостю вище. Якщо це інша людина, впишіть її власні email і телефон: компанія та посада можуть збігатися, а email і телефон – ні.${walk?'':' Якщо це той самий гість, видаліть зайвий запис.'}</div>`:''}`;
+  if(d.hard)mark(d.field,d.field==='Email'?'Такий email уже є у списку':'Такий телефон уже є у списку');
   $('#dupBox').classList.add('show');
   const close=()=>{$('#mEdit').classList.remove('show');const s=$('#search');s.value='';render();s.focus()};
   if($('#dupUse'))$('#dupUse').onclick=()=>{close();checkIn(d.i)};
   if($('#dupPrint'))$('#dupPrint').onclick=()=>{close();printBadge(r)};
-  $('#dupOther').onclick=()=>{dupOverride=true;saveEdit()};
-  ($('#dupUse')||$('#dupPrint')||$('#dupOther')).focus();
+  if($('#dupOther'))$('#dupOther').onclick=()=>{dupOverride=true;saveEdit()};
+  const fb=$('#dupUse')||$('#dupPrint')||$('#dupOther'); if(fb)fb.focus(); else $('#f'+d.field).focus();
 }
 function deleteRow(){
   if(editIdx===null)return; const r=S.rows[editIdx];
@@ -607,10 +613,9 @@ function deleteRow(){
 async function saveEdit(){
   if(!$('#mEdit').classList.contains('show')||editBusy)return; // захист від подвійного Enter / кліку
   if(!validate(true)){const b=document.querySelector('#mEdit input.bad');if(b)b.focus();return}
-  if(!dupOverride){
-    const d=findDup({name:$('#fName').value,email:$('#fEmail').value,phone:$('#fPhone').value},editIdx);
-    if(d){showDup(d);return}
-  }
+  // «Це інша людина» знімає лише збіг за іменем; збіг email або телефону блокує завжди
+  const d=findDup({name:$('#fName').value,email:$('#fEmail').value,phone:$('#fPhone').value},editIdx,dupOverride);
+  if(d){showDup(d);return}
   editBusy=true; setTimeout(()=>editBusy=false,800);
   const name=$('#fName').value.trim().split(/\s+/).map(cap).join(' ');
   const phone='+380'+phoneDigits($('#fPhone').value);
