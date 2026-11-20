@@ -95,6 +95,8 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
 .dupcard table.kv td{border:0;padding:2px 4px;vertical-align:top}
 .dupcard table.kv td:first-child{color:var(--mute);width:80px}
 .dupcard .acts{margin-top:10px;display:flex;gap:6px}
+#mEdit .dlg{width:720px}
+.dlg .btns button{white-space:nowrap}
 .dlg .btns{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:6px;opacity:0;transition:.25s;z-index:30;pointer-events:none}
 .toast.show{opacity:1}
@@ -186,7 +188,7 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
       <button data-f="wait">Очікуємо</button>
       <button data-f="in">Прийшли</button>
     </span>
-    <button id="btnWalkIn" class="ok">+ Гостя немає у списку</button>
+    <button id="btnWalkIn" class="ok">+ Додати гостя</button>
   </div>
   <div class="searchHint">Шукайте за прізвищем, компанією або телефоном. Знайшли гостя – натисніть <b>«Прийшов ✓»</b> (або <kbd>Enter</kbd>, якщо в списку один рядок). Програма запише відмітку і надрукує 2 етикетки.</div>
   <div id="list"></div>
@@ -211,6 +213,7 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
   <div class="btns">
     <button type="button" id="btnDelete" class="danger" style="margin-right:auto">Видалити запис</button>
     <button type="button" id="btnCancelEdit">Скасувати</button>
+    <button type="button" id="btnSaveLater" title="Гість прийде пізніше: запис з'явиться у списку без відмітки і без бейджа">Лише додати до списку</button>
     <button type="button" id="btnSaveEdit" class="primary">Зберегти</button>
   </div>
 </div></div>
@@ -262,12 +265,13 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
     <li>Гість називає прізвище. Почніть вводити його в поле пошуку, вистачить 3–4 літер.</li>
     <li>Знайшли гостя у списку – натисніть зелену кнопку <b>«Прийшов ✓»</b>.</li>
     <li>Відкриється вікно друку: принтер <b>Toshiba</b> → <b>«Друк»</b>. Вийдуть 2 етикетки, наклейте їх на обидва боки бейджа.</li>
-    <li>Гостя немає у списку – <b>«+ Гостя немає у списку»</b>. Заповніть ім'я та прізвище, компанію, email і телефон, натисніть «Зареєструвати і надрукувати бейдж».</li>
+    <li>Гостя немає у списку – <b>«+ Додати гостя»</b>. Заповніть ім'я та прізвище, компанію, email і телефон, натисніть «Гість тут: відмітити і надрукувати бейдж».</li>
     <li>Рядок гостя стане зеленим. Відмітка вже збережена у файлі, нічого натискати не треба.</li>
   </ol>
   <h3>Якщо щось пішло не так</h3>
   <p><b>Бейдж не надрукувався або зіпсувався.</b> Знайдіть гостя (фільтр «Прийшли») і натисніть «Друк ще раз».</p>
-  <p><b>Відмітили не ту людину.</b> Натисніть «Скасувати відмітку» в її рядку.</p>
+  <p><b>Відмітили не ту людину.</b> Натисніть «Скасувати відмітку» в її рядку. Запис залишиться у списку зі статусом «ще не прийшов».</p>
+  <p><b>Гість попередив телефоном, що прийде.</b> «+ Додати гостя» → «Лише додати до списку». Запис з'явиться з позначкою «додано вручну», без відмітки і без бейджа. Коли гість прийде, знайдіть його і натисніть «Прийшов ✓».</p>
   <p><b>Помилковий або зайвий запис.</b> «Змінити» → «Видалити запис». Позначка «⚠ можливий дубль – розібратися» відкриває порівняння схожих записів: зайвий можна видалити або виправити прямо там.</p>
   <p><b>Програма каже «Схоже, цей гість уже є у списку».</b> Якщо це та сама людина, натисніть «Це він – відмітити». Якщо однофамілець – «Це інша людина». Однофамільця можна зберегти лише з його власними email і телефоном: якщо вони збігаються з кимось у списку, програма не дасть зберегти.</p>
   <p><b>Помилка в імені чи компанії.</b> Кнопка «Змінити» в рядку гостя, виправте і збережіть, потім «Друк ще раз».</p>
@@ -475,13 +479,10 @@ async function checkIn(i){
 }
 function undo(i){
   const r=S.rows[i];
-  if(r[S.map.src]==='На місці'){
-    // гостя створили на заході: без відмітки «Прийшов» запис не має сенсу, тому прибираємо його повністю
-    if(!confirm('Гостя '+displayName(r)+' зареєстрували тут, на заході.\n\nСкасування відмітки видалить цей запис повністю, і з Excel-файлу теж.'))return;
-    S.rows.splice(i,1); changed(); render(); toast('Відмітку скасовано, запис видалено'); return;
-  }
-  if(!confirm('Скасувати відмітку «Прийшов» для гостя '+displayName(r)+'?'))return;
-  r[S.map.status]=''; r[S.map.time]=''; changed(); render(); toast('Відмітку скасовано');
+  if(!confirm('Скасувати відмітку «Прийшов» для гостя '+displayName(r)+'?\n\nЗапис залишиться у списку зі статусом «ще не прийшов».'))return;
+  r[S.map.status]=''; r[S.map.time]='';
+  if(r[S.map.src]==='На місці')r[S.map.src]='Додано вручну'; // вже не «на місці»: запис є, гостя немає
+  changed(); render(); toast('Відмітку скасовано');
 }
 function displayName(r){return String(get(r,'name')).replace(/\s+/g,' ').trim()}
 
@@ -501,14 +502,14 @@ function render(){
   const total=S.rows.length, inn=S.rows.filter(isIn).length, walk=S.rows.filter(r=>r[S.map.src]==='На місці'&&isIn(r)).length;
   $('#sTotal').textContent=total; $('#sIn').textContent=inn; $('#sWalk').textContent=walk;
   if(!total)return;
-  if(!idx.length){$('#list').innerHTML=q?`<div class="empty big">За запитом «${esc($('#search').value)}» нікого не знайдено.<br>Спробуйте інше написання, назву компанії або цифри телефону.<br><br>Гостя справді немає у списку?<br><br><button class="ok" onclick="REG.walkIn()">+ Зареєструвати гостя на місці</button></div>`:'<div class="empty">У цьому фільтрі поки нікого немає.</div>';return}
+  if(!idx.length){$('#list').innerHTML=q?`<div class="empty big">За запитом «${esc($('#search').value)}» нікого не знайдено.<br>Спробуйте інше написання, назву компанії або цифри телефону.<br><br>Гостя справді немає у списку?<br><br><button class="ok" onclick="REG.walkIn()">+ Додати гостя</button></div>`:'<div class="empty">У цьому фільтрі поки нікого немає.</div>';return}
   idx.sort((a,b)=>norm(get(S.rows[a],'name')).localeCompare(norm(get(S.rows[b],'name')),'uk'));
   const dups=dupGroups();
   let h='<table><thead><tr><th>Учасник</th><th>Компанія</th><th>Посада</th><th>Контакти</th><th></th></tr></thead><tbody>';
   for(const i of idx){
     const r=S.rows[i], a=isIn(r);
     h+=`<tr class="${a?'arrived':''}">
-      <td class="name">${esc(displayName(r))}${r[S.map.src]==='На місці'?'<span class="tag">на місці</span>':''}${dups.has(i)?`<button class="tag dupt" onclick="REG.dup(${i})" title="У списку є схожий запис. Натисніть, щоб порівняти і видалити або виправити зайвий">⚠ можливий дубль – розібратися</button>`:''}</td>
+      <td class="name">${esc(displayName(r))}${r[S.map.src]==='На місці'?'<span class="tag">на місці</span>':r[S.map.src]==='Додано вручну'?'<span class="tag" style="background:#e8f0fb;color:var(--accent)">додано вручну</span>':''}${dups.has(i)?`<button class="tag dupt" onclick="REG.dup(${i})" title="У списку є схожий запис. Натисніть, щоб порівняти і видалити або виправити зайвий">⚠ можливий дубль – розібратися</button>`:''}</td>
       <td>${esc(get(r,'company'))}</td>
       <td class="small">${esc(get(r,'pos'))}</td>
       <td class="small">${esc(get(r,'email'))}<br>${esc(get(r,'phone'))}</td>
@@ -558,8 +559,9 @@ function validate(show){
 // ---------- редагування / реєстрація на місці ----------
 function openEdit(i){
   editIdx=i; const r=i===null?null:S.rows[i];
-  $('#mEditTitle').textContent=i===null?'Реєстрація гостя на місці':'Змінити дані гостя';
-  $('#btnSaveEdit').textContent=i===null?'Зареєструвати і надрукувати бейдж':'Зберегти зміни';
+  $('#mEditTitle').textContent=i===null?'Новий гість':'Змінити дані гостя';
+  $('#btnSaveEdit').textContent=i===null?'Гість тут: відмітити і надрукувати бейдж':'Зберегти зміни';
+  $('#btnSaveLater').style.display=i===null?'':'none'; addMode='here';
   const q=$('#search').value.trim();
   $('#fName').value=r?displayName(r):(/\d|@/.test(q)?'':q.split(/\s+/).map(cap).join(' '));
   $('#fCompany').value=r?get(r,'company'):'';
@@ -641,7 +643,7 @@ function delAt(k){
   if(!confirm('Видалити запис «'+displayName(r)+'» ('+(get(r,'company')||'без компанії')+', '+(get(r,'email')||'без email')+')?'+warn+'\n\nЗапис зникне і з Excel-файлу. Скасувати це не можна.'))return false;
   S.rows.splice(k,1); changed(); render(); toast('Запис видалено'); return true;
 }
-let dupOverride=false, editBusy=false;
+let dupOverride=false, editBusy=false, addMode='here'; // here – гість біля стійки; later – прийде пізніше
 function showDup(d){
   const r=S.rows[d.i], a=isIn(r), walk=editIdx===null;
   $('#dupBox').innerHTML=`<b>Схоже, цей гість уже є у списку</b> (${d.why}):<br>
@@ -683,13 +685,15 @@ async function saveEdit(){
   if(editIdx===null){
     r=new Array(S.headers.length).fill('');
     if(S.map.num>=0){const nums=S.rows.map(x=>+x[S.map.num]).filter(n=>!isNaN(n));r[S.map.num]=(nums.length?Math.max(...nums):0)+1}
-    r[S.map.src]='На місці'; S.rows.push(r);
+    r[S.map.src]=addMode==='later'?'Додано вручну':'На місці'; S.rows.push(r);
   }else r=S.rows[editIdx];
   set(r,'name',name); set(r,'company',$('#fCompany').value.trim()); set(r,'pos',$('#fPos').value.trim());
   set(r,'email',$('#fEmail').value.trim().toLowerCase()); set(r,'phone',phone);
   if(S.map.note>=0)set(r,'note',$('#fNote').value.trim());
   $('#mEdit').classList.remove('show');
-  if(editIdx===null){$('#search').value='';checkIn(S.rows.length-1)}else{changed();render();toast('Зміни збережено')}
+  if(editIdx===null&&addMode==='here'){$('#search').value='';checkIn(S.rows.length-1)}
+  else if(editIdx===null){$('#search').value='';changed();render();toast('Гостя додано до списку. Коли прийде – знайдіть його і натисніть «Прийшов ✓»');$('#search').focus()}
+  else{changed();render();toast('Зміни збережено')}
 }
 
 // ---------- бейдж ----------
@@ -768,7 +772,8 @@ $('#fPhone').onkeydown=e=>{const el=e.target;if((e.key==='Backspace'&&el.selecti
 $('#fName').onblur=()=>{const v=$('#fName').value.trim();if(v)$('#fName').value=v.split(/\s+/).map(cap).join(' ')};
 ['#fName','#fCompany','#fEmail'].forEach(s=>$(s).addEventListener('input',()=>{if($(s).classList.contains('bad'))validate(true)}));
 $('#btnCancelEdit').onclick=()=>$('#mEdit').classList.remove('show');
-$('#btnSaveEdit').onclick=()=>{dupOverride=false;saveEdit()};
+$('#btnSaveEdit').onclick=()=>{dupOverride=false;addMode='here';saveEdit()};
+$('#btnSaveLater').onclick=()=>{dupOverride=false;addMode='later';saveEdit()};
 $('#btnDelete').onclick=deleteRow;
 ['#fName','#fEmail','#fPhone'].forEach(s=>$(s).addEventListener('input',()=>{dupOverride=false;$('#dupBox').classList.remove('show')}));
 $('#mEdit').onkeydown=e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT'){e.preventDefault();if(!e.repeat)saveEdit()}if(e.key==='Escape')$('#mEdit').classList.remove('show')};
