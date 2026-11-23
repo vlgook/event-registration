@@ -222,6 +222,14 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
 <!-- налаштування бейджа -->
 <div class="modal" id="mSet"><div class="dlg">
   <h2>Етикетка бейджа</h2>
+  <label>Розмір етикетки в рулоні</label>
+  <select id="sPreset" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:15px">
+    <option value="90x50">90 × 50 мм</option><option value="90x55">90 × 55 мм</option>
+    <option value="100x50">100 × 50 мм</option><option value="100x60">100 × 60 мм</option><option value="100x70">100 × 70 мм</option>
+    <option value="80x50">80 × 50 мм</option><option value="76x51">76 × 51 мм (3″ × 2″)</option><option value="58x40">58 × 40 мм</option>
+    <option value="custom">Інший розмір – вписати нижче</option>
+  </select>
+  <div class="hint" style="margin-top:4px">Такий самий розмір має стояти в налаштуваннях драйвера принтера Toshiba.</div>
   <div class="row">
     <div style="flex:1"><label>Ширина, мм</label><input id="sW" type="number" min="30" max="200"></div>
     <div style="flex:1"><label>Висота, мм</label><input id="sH" type="number" min="20" max="200"></div>
@@ -312,7 +320,7 @@ const C_STATUS='Присутність', C_TIME='Час прибуття', C_SRC
 let S={ // стан
   headers:[], rows:[], map:{}, sheetName:'Реєстрація', fileName:'',
   event:'', filter:'all',
-  badge:{w:90,h:55,ev:16,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:6,copies:2,hintOff:false,v:2,ftb:1,dx:0,dy:0}
+  badge:{w:90,h:50,ev:16,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:6,copies:2,hintOff:false,v:3,ftb:1,dx:0,dy:0}
 };
 let fileHandle=null, dirty=false, editIdx=null, saveTimer=null, canWrite=false, started=false, printHintShown=false;
 const KIOSK=/[?&]kiosk=1/.test(location.search);
@@ -323,7 +331,7 @@ async function idbGet(){try{const db=await idb();return await new Promise(ok=>{c
 
 // ---------- збереження стану в браузері (захист від випадкового закриття) ----------
 function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function restore(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j&&j.badge){S=Object.assign(S,j);S.badge=Object.assign({w:90,h:55,ev:16,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:6,copies:2,hintOff:false,v:2,ftb:1,dx:0,dy:0},j.badge);if(S.badge.v!==2){S.badge.ev=16;S.badge.fts=6;S.badge.v=2}}}catch(e){}}
+function restore(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j&&j.badge){S=Object.assign(S,j);S.badge=Object.assign({w:90,h:50,ev:16,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:6,copies:2,hintOff:false,v:3,ftb:1,dx:0,dy:0},j.badge);if((S.badge.v||1)<2){S.badge.ev=16;S.badge.fts=6}if((S.badge.v||1)<3){if(S.badge.w===90&&S.badge.h===55)S.badge.h=50;S.badge.v=3}}}catch(e){}}
 
 // ---------- розпізнавання колонок ----------
 function detect(headers){
@@ -762,10 +770,11 @@ async function printBadge(r){
   setTimeout(()=>window.print(),50);
 }
 function openSettings(){
-  const b=S.badge; $('#sW').value=b.w;$('#sH').value=b.h;$('#sEv').value=b.ev;$('#sNm').value=b.nm;$('#sCo').value=b.co;$('#sAuto').checked=b.auto;$('#sFt').value=b.ft;$('#sFts').value=b.fts;$('#sCopies').value=b.copies;$('#sFtb').value=b.ftb;$('#sDx').value=b.dx;$('#sDy').value=b.dy;
+  const b=S.badge; syncPreset(); $('#sW').value=b.w;$('#sH').value=b.h;$('#sEv').value=b.ev;$('#sNm').value=b.nm;$('#sCo').value=b.co;$('#sAuto').checked=b.auto;$('#sFt').value=b.ft;$('#sFts').value=b.fts;$('#sCopies').value=b.copies;$('#sFtb').value=b.ftb;$('#sDx').value=b.dx;$('#sDy').value=b.dy;
   drawPreview(); $('#mSet').classList.add('show');
 }
-function readSettings(){const b=S.badge;b.w=+$('#sW').value||90;b.h=+$('#sH').value||55;b.ev=+$('#sEv').value||16;b.nm=+$('#sNm').value||20;b.co=+$('#sCo').value||12;b.auto=$('#sAuto').checked;b.ft=$('#sFt').value;b.fts=+$('#sFts').value||6;b.copies=+$('#sCopies').value||2;b.ftb=$('#sFtb').value===''?1:+$('#sFtb').value;b.dx=+$('#sDx').value||0;b.dy=+$('#sDy').value||0;persist();drawPreview()}
+function syncPreset(){const v=S.badge.w+'x'+S.badge.h;$('#sPreset').value=[...$('#sPreset').options].some(o=>o.value===v)?v:'custom'}
+function readSettings(){const b=S.badge;b.w=+$('#sW').value||90;b.h=+$('#sH').value||50;b.ev=+$('#sEv').value||16;b.nm=+$('#sNm').value||20;b.co=+$('#sCo').value||12;b.auto=$('#sAuto').checked;b.ft=$('#sFt').value;b.fts=+$('#sFts').value||6;b.copies=+$('#sCopies').value||2;b.ftb=$('#sFtb').value===''?1:+$('#sFtb').value;b.dx=+$('#sDx').value||0;b.dy=+$('#sDy').value||0;persist();syncPreset();drawPreview()}
 function drawPreview(){const r=S.rows.find(x=>displayName(x))||null;$('#previewWrap').innerHTML='<label>Попередній перегляд</label><div id="preview" style="width:'+S.badge.w+'mm">'+badgeHTML(r)+'</div>';const el=$('#preview .badge');if(el)fitBadge(el)}
 
 // ---------- дрібниці ----------
@@ -815,6 +824,7 @@ $('#mEdit').onkeydown=e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT'){e.prev
 $('#btnSettings').onclick=openSettings;
 ['#sW','#sH','#sEv','#sNm','#sCo','#sAuto','#sFt','#sFts','#sCopies','#sFtb','#sDx','#sDy'].forEach(s=>$(s).oninput=readSettings);
 $('#btnCalib').onclick=printCalib;
+$('#sPreset').onchange=()=>{const v=$('#sPreset').value;if(v==='custom'){$('#sW').focus();return}const [w,h]=v.split('x').map(Number);$('#sW').value=w;$('#sH').value=h;readSettings()};
 $('#btnTestPrint').onclick=()=>printBadge(S.rows.find(x=>displayName(x))||null);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('#mHelp.show,#mSet.show,#mDup.show').forEach(m=>m.classList.remove('show'))});
 $('#btnCloseSet').onclick=()=>$('#mSet').classList.remove('show');
