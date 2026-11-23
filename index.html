@@ -9,7 +9,7 @@
 :root{--bg:#f4f6f9;--card:#fff;--ink:#1d2330;--mute:#6b7385;--line:#e2e6ee;--accent:#0b5cad;--ok:#1f8a4c;--okbg:#e6f5ec;--warn:#b25b00}
 *{box-sizing:border-box}
 body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
-header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;gap:12px;align-items:center;flex-wrap:nowrap;position:sticky;top:0;z-index:5}
 header h1{font-size:17px;margin:0 12px 0 0;white-space:nowrap}
 input,button,select{font:inherit}
 input[type=text],input[type=email],input[type=tel],input[type=number]{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:#fff}
@@ -20,10 +20,12 @@ button.ok{background:var(--ok);border-color:var(--ok);color:#fff}
 button.ghost{border-color:transparent;background:transparent;color:var(--mute)}
 button:disabled{opacity:.45;cursor:default}
 #eventName{min-width:260px;flex:1;max-width:420px;font-weight:600}
-.stats{margin-left:auto;display:flex;gap:16px;color:var(--mute);white-space:nowrap}
+.stats{margin-left:auto;display:flex;gap:14px;color:var(--mute);white-space:nowrap;flex:none}
+header button{flex:none;white-space:nowrap}
 .stats b{color:var(--ink);font-size:18px}
-.save{font-size:13px;color:var(--mute);white-space:nowrap}
+.save{font-size:13px;color:var(--mute);flex:1 1 auto;min-width:0;line-height:1.25}
 .save.dirty{color:var(--warn)}
+.save.err{color:#fff;background:#c62828;padding:5px 10px;border-radius:6px;font-weight:600}
 main{padding:16px 20px 50px;max-width:1300px;margin:0 auto}
 /* майстер підготовки */
 #setup{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px 24px;margin-bottom:16px}
@@ -65,14 +67,23 @@ th{background:#fafbfd;font-size:13px;color:var(--mute);font-weight:600}
 tr.arrived td{background:var(--okbg)}
 td.name{font-weight:600;font-size:16px}
 td.small{color:var(--mute);font-size:13px}
-td.act{white-space:nowrap;text-align:right}
+td.act{width:1%;text-align:right}
+td.act .acts{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px;min-width:345px}
+td.act .time{flex-basis:100%;text-align:right;margin:0}
+td.contacts{overflow-wrap:anywhere;min-width:150px}
+td.name .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+td.name .tags .tag{margin-left:0}
+td.name .tags:empty{display:none}
+@media (max-width:1200px){th.pos,td.pos{display:none}}
 .btn-in{min-width:150px;font-weight:600}
 .tag{display:inline-block;font-size:11px;padding:2px 6px;border-radius:4px;background:#fff3e0;color:var(--warn);margin-left:6px;vertical-align:middle}
 .time{color:var(--ok);font-weight:600;margin-right:8px}
 .empty{padding:60px;text-align:center;color:var(--mute);background:var(--card);border:1px dashed var(--line);border-radius:8px}
 .modal{position:fixed;inset:0;background:rgba(20,25,35,.45);display:none;align-items:center;justify-content:center;z-index:20}
 .modal.show{display:flex}
-.dlg{background:#fff;border-radius:10px;padding:22px;width:520px;max-width:95vw}
+.dlg{background:#fff;border-radius:10px;padding:22px 22px 0;width:520px;max-width:95vw;max-height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain}
+/* кнопки діалогу завжди видно внизу, навіть коли вміст прокручується */
+.dlg .btns{position:sticky;bottom:0;background:#fff;padding:12px 0 18px;margin-top:14px;border-top:1px solid var(--line);z-index:2}
 .dlg h2{margin:0 0 14px;font-size:18px}
 .dlg label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .dlg input{width:100%}
@@ -98,7 +109,7 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
 #mEdit .dlg{width:720px}
 .dlg .btns button{white-space:nowrap}
 .dlg .btns{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:6px;opacity:0;transition:.25s;z-index:30;pointer-events:none}
+.toast{position:fixed;top:74px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:6px;opacity:0;transition:.25s;z-index:30;pointer-events:none}
 .toast.show{opacity:1}
 .hint{font-size:12px;color:var(--mute)}
 /* бейдж */
@@ -244,7 +255,7 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
     <div style="flex:1"><label>Розмір, pt</label><input id="sFts" type="number" min="5" max="14"></div>
   </div>
   <div class="row">
-    <div style="flex:1"><label>Нижній рядок від краю, мм</label><input id="sFtb" type="number" step="0.5" min="0" max="10"></div>
+    <div style="flex:1"><label>Відступ знизу, мм</label><input id="sFtb" type="number" step="0.5" min="0" max="10"></div>
     <div style="flex:1"><label>Зсув праворуч, мм</label><input id="sDx" type="number" step="0.5" min="-15" max="15"></div>
     <div style="flex:1"><label>Зсув донизу, мм</label><input id="sDy" type="number" step="0.5" min="-15" max="15"></div>
   </div>
@@ -356,21 +367,26 @@ async function openFile(){
   try{
     if(window.showOpenFilePicker){
       const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});
-      const f=await h.getFile(); fileHandle=h; canWrite=false; idbSet(h); await load(await f.arrayBuffer(),f.name);
+      const f=await h.getFile(); await load(await f.arrayBuffer(),f.name,h);
     }else{
       const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls,.csv';
-      inp.onchange=async()=>{const f=inp.files[0];if(f){fileHandle=null;canWrite=false;await load(await f.arrayBuffer(),f.name)}};inp.click();
+      inp.onchange=async()=>{const f=inp.files[0];if(f){await load(await f.arrayBuffer(),f.name,null)}};inp.click();
     }
   }catch(e){if(e.name!=='AbortError')toast('Не вдалося відкрити файл: '+e.message)}
 }
-async function load(buf,name){
-  const wb=XLSX.read(buf,{type:'array'});
-  const sn=wb.SheetNames[0]; const ws=wb.Sheets[sn];
-  const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+async function load(buf,name,handle){
+  // спершу перевіряємо новий файл, і лише потім замінюємо поточні дані
+  let wb,sn,aoa;
+  const bad=()=>alert('Файл «'+name+'» не схожий на список учасників. Потрібен Excel-файл (.xlsx) з вивантаженням Google Forms: з колонками ПІБ, Компанія, Email, Телефон.'+(S.rows.length?'\n\nПоточний список «'+S.fileName+'» залишився без змін.':''));
+  if(!/\.(xlsx|xls|csv)$/i.test(name)){bad();return}
+  try{wb=XLSX.read(buf,{type:'array'});sn=wb.SheetNames[0];aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true})}
+  catch(e){bad();return}
   // заголовок = перший рядок, де є колонка з ПІБ/ім'ям
-  let hr=aoa.findIndex(r=>r.some(c=>/піб|прізвище|ім'я|name/i.test(String(c))));
-  if(hr<0)hr=0;
+  const hr=aoa.findIndex(r=>r.some(c=>/піб|пiб|прізвище|ім'я|name|фіо/i.test(String(c))));
+  const dm=hr<0?null:detect(aoa[hr].map(h=>String(h).trim()));
+  if(!dm||dm.name<0||[dm.company,dm.email,dm.phone].every(x=>x<0)){bad();return}
   if(S.rows.length&&S.fileName&&S.fileName!==name&&!confirm('У програмі є дані з файлу «'+S.fileName+'». Замінити їх новим файлом?'))return;
+  fileHandle=handle; canWrite=false; if(handle)idbSet(handle);
   S.headers=aoa[hr].map(h=>String(h).trim());
   S.rows=aoa.slice(hr+1).filter(r=>r.some(c=>String(c).trim()!==''));
   const w=S.headers.length; S.rows.forEach(r=>{while(r.length<w)r.push('')});
@@ -380,7 +396,6 @@ async function load(buf,name){
   S.map.status=ensureCol(C_STATUS); S.map.time=ensureCol(C_TIME); S.map.src=ensureCol(C_SRC);
   if(S.map.company<0){S.map.company=ensureCol('Компанія')}
   S.rows.forEach(r=>{if(!r[S.map.src])r[S.map.src]='Форма'});
-  if(S.map.name<0){S.rows=[];alert('У файлі «'+name+'» не знайдено колонку з ім\'ям (ПІБ). Перевірте, що це вивантаження з форми реєстрації.');S.fileName='';updateSetup();return}
   dirty=true; persist(); render(); updateSetup();
   toast('Завантажено учасників: '+S.rows.length);
   if(fileHandle){$('#btnPerm').focus()}
@@ -473,7 +488,7 @@ function changed(){
 }
 function setSaveState(msg){
   const el=$('#saveState');
-  if(msg){el.textContent=msg;el.className='save dirty';return}
+  if(msg){el.textContent=msg;el.className='save err';return}
   if(!S.rows.length){el.textContent='';return}
   $('#btnSave').style.display=(!canWrite&&started)?'':'none';
   $('#btnSave').textContent='Скачати Excel';
@@ -521,17 +536,17 @@ function render(){
   if(!idx.length){$('#list').innerHTML=q?`<div class="empty big">За запитом «${esc($('#search').value)}» нікого не знайдено.<br>Спробуйте інше написання, назву компанії або цифри телефону.<br><br>Гостя справді немає у списку?<br><br><button class="ok" onclick="REG.walkIn()">+ Додати гостя</button></div>`:'<div class="empty">У цьому фільтрі поки нікого немає.</div>';return}
   idx.sort((a,b)=>norm(get(S.rows[a],'name')).localeCompare(norm(get(S.rows[b],'name')),'uk'));
   const dups=dupGroups();
-  let h='<table><thead><tr><th>Учасник</th><th>Компанія</th><th>Посада</th><th>Контакти</th><th></th></tr></thead><tbody>';
+  let h='<table><thead><tr><th>Учасник</th><th>Компанія</th><th class="pos">Посада</th><th>Контакти</th><th></th></tr></thead><tbody>';
   for(const i of idx){
     const r=S.rows[i], a=isIn(r);
     h+=`<tr class="${a?'arrived':''}">
-      <td class="name">${esc(displayName(r))}${r[S.map.src]==='На місці'?'<span class="tag">на місці</span>':r[S.map.src]==='Додано вручну'?'<span class="tag" style="background:#e8f0fb;color:var(--accent)">додано вручну</span>':''}${dups.has(i)?`<button class="tag dupt" onclick="REG.dup(${i})" title="У списку є схожий запис. Натисніть, щоб порівняти і видалити або виправити зайвий">⚠ можливий дубль – розібратися</button>`:''}</td>
+      <td class="name">${esc(displayName(r))}<div class="tags">${r[S.map.src]==='На місці'?'<span class="tag">на місці</span>':r[S.map.src]==='Додано вручну'?'<span class="tag" style="background:#e8f0fb;color:var(--accent)">додано вручну</span>':''}${dups.has(i)?`<button class="tag dupt" onclick="REG.dup(${i})" title="У списку є схожий запис. Натисніть, щоб порівняти і видалити або виправити зайвий">⚠ можливий дубль – розібратися</button>`:''}</div></td>
       <td>${esc(get(r,'company'))}</td>
-      <td class="small">${esc(get(r,'pos'))}</td>
-      <td class="small">${esc(get(r,'email'))}<br>${esc(get(r,'phone'))}</td>
-      <td class="act">${a
+      <td class="small pos">${esc(get(r,'pos'))}</td>
+      <td class="small contacts">${esc(get(r,'email'))}<br>${esc(get(r,'phone'))}</td>
+      <td class="act"><div class="acts">${a
         ?`<span class="time">✓ прийшов ${esc(String(r[S.map.time]).split(' ').pop())}</span><button class="sm" onclick="REG.print(${i})">Друк ще раз</button> <button class="sm" onclick="REG.edit(${i})">Змінити</button> <button class="sm ghost" onclick="REG.undo(${i})">Скасувати відмітку</button>`
-        :`<button class="sm ghost" onclick="REG.edit(${i})">Змінити</button> <button class="ok btn-in" onclick="REG.in(${i})">Прийшов ✓</button>`}</td></tr>`;
+        :`<button class="sm ghost" onclick="REG.edit(${i})">Змінити</button> <button class="ok btn-in" onclick="REG.in(${i})">Прийшов ✓</button>`}</div></td></tr>`;
   }
   $('#list').innerHTML=h+'</tbody></table>';
 }
