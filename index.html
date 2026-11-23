@@ -103,13 +103,13 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
 .hint{font-size:12px;color:var(--mute)}
 /* бейдж */
 #badgeArea{display:none}
-.badge{position:relative;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;padding:3mm;font-family:Arial,sans-serif;color:#000;background:#fff}
+.badge{position:relative;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;padding:3mm 3mm calc(var(--ftb) + var(--ftSize) + 1mm);font-family:Arial,sans-serif;color:#000;background:#fff}
 .badge .ev{flex:none;text-align:center;font-weight:700;text-transform:uppercase;letter-spacing:.2px;line-height:1.1;font-size:var(--evSize);padding-bottom:1mm;border-bottom:.3mm solid #000;overflow:hidden}
 .badge .ev .evt{display:block}
 .badge .mid{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;overflow:hidden}
 .badge .nm{font-size:var(--nmSize);font-weight:700;line-height:1.1}
 .badge .co{font-size:var(--coSize);margin-top:1.5mm;line-height:1.15}
-.badge .ft{flex:none;text-align:left;font-size:var(--ftSize);line-height:1;white-space:nowrap;overflow:hidden}
+.badge .ft{position:absolute;left:3mm;right:3mm;bottom:var(--ftb);text-align:left;font-size:var(--ftSize);line-height:1;white-space:nowrap;overflow:hidden}
 #badgeArea .badge{break-after:page;page-break-after:always}
 #badgeArea .badge:last-child{break-after:auto;page-break-after:auto}
 #preview{border:1px dashed #999;margin:10px auto 0;background:#fff;transform-origin:top center}
@@ -117,7 +117,7 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
   html,body{margin:0;padding:0;background:#fff}
   body>*:not(#badgeArea){display:none!important}
   #badgeArea{display:block!important}
-  #badgeArea .badge{margin:0}
+  #badgeArea .badge,#badgeArea .calib{margin:0;transform:translate(var(--dx,0mm),var(--dy,0mm))}
 }
 </style>
 <style id="pageStyle">@page{size:90mm 55mm;margin:0}</style>
@@ -235,10 +235,17 @@ button.danger:hover{border-color:#c62828;background:#fff6f6}
     <div style="flex:4"><label>Нижній рядок етикетки</label><input id="sFt" type="text"></div>
     <div style="flex:1"><label>Розмір, pt</label><input id="sFts" type="number" min="5" max="14"></div>
   </div>
+  <div class="row">
+    <div style="flex:1"><label>Нижній рядок від краю, мм</label><input id="sFtb" type="number" step="0.5" min="0" max="10"></div>
+    <div style="flex:1"><label>Зсув праворуч, мм</label><input id="sDx" type="number" step="0.5" min="-15" max="15"></div>
+    <div style="flex:1"><label>Зсув донизу, мм</label><input id="sDy" type="number" step="0.5" min="-15" max="15"></div>
+  </div>
+  <div class="hint" style="margin-top:4px">Якщо текст обрізається з одного боку, надрукуйте калібрувальну рамку і зсуньте друк. Від'ємне значення зсуває ліворуч / вгору.</div>
   <label>Етикеток на учасника <span class="hint">(2 – на обидва боки заготовки)</span></label><input id="sCopies" type="number" min="1" max="5" style="width:90px">
   <label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input id="sAuto" type="checkbox" style="width:auto"> Друкувати бейдж одразу після відмітки</label>
   <div id="previewWrap"></div>
   <div class="btns">
+    <button type="button" id="btnCalib" style="margin-right:auto">Калібрувальна рамка</button>
     <button type="button" id="btnTestPrint">Пробний друк</button>
     <button type="button" id="btnCloseSet" class="primary">Готово</button>
   </div>
@@ -305,7 +312,7 @@ const C_STATUS='Присутність', C_TIME='Час прибуття', C_SRC
 let S={ // стан
   headers:[], rows:[], map:{}, sheetName:'Реєстрація', fileName:'',
   event:'', filter:'all',
-  badge:{w:90,h:55,ev:16,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:6,copies:2,hintOff:false,v:2}
+  badge:{w:90,h:55,ev:16,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:6,copies:2,hintOff:false,v:2,ftb:1,dx:0,dy:0}
 };
 let fileHandle=null, dirty=false, editIdx=null, saveTimer=null, canWrite=false, started=false, printHintShown=false;
 const KIOSK=/[?&]kiosk=1/.test(location.search);
@@ -316,7 +323,7 @@ async function idbGet(){try{const db=await idb();return await new Promise(ok=>{c
 
 // ---------- збереження стану в браузері (захист від випадкового закриття) ----------
 function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
-function restore(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j&&j.badge){S=Object.assign(S,j);S.badge=Object.assign({w:90,h:55,ev:16,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:6,copies:2,hintOff:false,v:2},j.badge);if(S.badge.v!==2){S.badge.ev=16;S.badge.fts=6;S.badge.v=2}}}catch(e){}}
+function restore(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j&&j.badge){S=Object.assign(S,j);S.badge=Object.assign({w:90,h:55,ev:16,nm:20,co:12,auto:true,ft:'Надруковано на принтері Toshiba',fts:6,copies:2,hintOff:false,v:2,ftb:1,dx:0,dy:0},j.badge);if(S.badge.v!==2){S.badge.ev=16;S.badge.fts=6;S.badge.v=2}}}catch(e){}}
 
 // ---------- розпізнавання колонок ----------
 function detect(headers){
@@ -700,7 +707,7 @@ async function saveEdit(){
 // ---------- бейдж ----------
 function badgeHTML(r,scale){
   const b=S.badge;
-  return `<div class="badge" style="width:${b.w}mm;height:${b.h}mm;--evSize:${b.ev}pt;--nmSize:${b.nm}pt;--coSize:${b.co}pt;--ftSize:${b.fts}pt">
+  return `<div class="badge" style="width:${b.w}mm;height:${b.h}mm;--evSize:${b.ev}pt;--nmSize:${b.nm}pt;--coSize:${b.co}pt;--ftSize:${b.fts}pt;--ftb:${b.ftb}mm">
     ${S.event?`<div class="ev"><span class="evt">${esc(S.event)}</span></div>`:''}
     <div class="mid"><div class="nm">${esc(r?displayName(r):'Олександр Петренко')}</div>
     <div class="co">${esc(r?get(r,'company'):'ТОВ «Компанія»')}</div></div>
@@ -720,7 +727,23 @@ function fitBadge(el){
   while(over()&&a>8){a-=.5;nm.style.fontSize=a+'pt'}
   while(over()&&c>6){c-=.5;co.style.fontSize=c+'pt'}
 }
-function applyPage(){$('#pageStyle').textContent=`@page{size:${S.badge.w}mm ${S.badge.h}mm;margin:0}`}
+function applyPage(){
+  $('#pageStyle').textContent=`@page{size:${S.badge.w}mm ${S.badge.h}mm;margin:0}`;
+  $('#badgeArea').style.setProperty('--dx',(S.badge.dx||0)+'mm'); $('#badgeArea').style.setProperty('--dy',(S.badge.dy||0)+'mm');
+}
+function calibSVG(){ // рамка по краю етикетки, поділки через 1 / 5 / 10 мм, хрест по центру
+  const w=S.badge.w,h=S.badge.h; let t='', n='';
+  for(let x=0;x<=w;x++){const L=x%10===0?4:x%5===0?2.5:1.2;t+=`<line x1="${x}" y1="0" x2="${x}" y2="${L}"/><line x1="${x}" y1="${h}" x2="${x}" y2="${h-L}"/>`;
+    if(x%10===0&&x>0&&x<w)n+=`<text x="${x}" y="7" text-anchor="middle">${x}</text>`}
+  for(let y=0;y<=h;y++){const L=y%10===0?4:y%5===0?2.5:1.2;t+=`<line x1="0" y1="${y}" x2="${L}" y2="${y}"/><line x1="${w}" y1="${y}" x2="${w-L}" y2="${y}"/>`;
+    if(y%10===0&&y>0&&y<h)n+=`<text x="5.5" y="${y+1}">${y}</text>`}
+  return `<div class="calib" style="width:${w}mm;height:${h}mm;overflow:hidden;background:#fff"><svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}" style="display:block">
+    <g stroke="#000" stroke-width="0.2">${t}<rect x="0.15" y="0.15" width="${w-0.3}" height="${h-0.3}" fill="none"/>
+    <line x1="${w/2-4}" y1="${h/2}" x2="${w/2+4}" y2="${h/2}"/><line x1="${w/2}" y1="${h/2-4}" x2="${w/2}" y2="${h/2+4}"/></g>
+    <g font-family="Arial" font-size="2.6" fill="#000" stroke="none">${n}<text x="${w/2}" y="${h/2-6}" text-anchor="middle" font-size="4" font-weight="700">ВЕРХ ↑  ${w}×${h} мм</text>
+    <text x="${w/2}" y="${h/2+9}" text-anchor="middle">Зсув: ${S.badge.dx||0} / ${S.badge.dy||0} мм</text></g></svg></div>`;
+}
+function printCalib(){applyPage();$('#badgeArea').innerHTML=calibSVG();setTimeout(()=>window.print(),50)}
 function printHint(){ // підказка перед першим друком
   if(KIOSK||S.badge.hintOff||printHintShown)return Promise.resolve();
   return new Promise(ok=>{
@@ -739,10 +762,10 @@ async function printBadge(r){
   setTimeout(()=>window.print(),50);
 }
 function openSettings(){
-  const b=S.badge; $('#sW').value=b.w;$('#sH').value=b.h;$('#sEv').value=b.ev;$('#sNm').value=b.nm;$('#sCo').value=b.co;$('#sAuto').checked=b.auto;$('#sFt').value=b.ft;$('#sFts').value=b.fts;$('#sCopies').value=b.copies;
+  const b=S.badge; $('#sW').value=b.w;$('#sH').value=b.h;$('#sEv').value=b.ev;$('#sNm').value=b.nm;$('#sCo').value=b.co;$('#sAuto').checked=b.auto;$('#sFt').value=b.ft;$('#sFts').value=b.fts;$('#sCopies').value=b.copies;$('#sFtb').value=b.ftb;$('#sDx').value=b.dx;$('#sDy').value=b.dy;
   drawPreview(); $('#mSet').classList.add('show');
 }
-function readSettings(){const b=S.badge;b.w=+$('#sW').value||90;b.h=+$('#sH').value||55;b.ev=+$('#sEv').value||16;b.nm=+$('#sNm').value||20;b.co=+$('#sCo').value||12;b.auto=$('#sAuto').checked;b.ft=$('#sFt').value;b.fts=+$('#sFts').value||6;b.copies=+$('#sCopies').value||2;persist();drawPreview()}
+function readSettings(){const b=S.badge;b.w=+$('#sW').value||90;b.h=+$('#sH').value||55;b.ev=+$('#sEv').value||16;b.nm=+$('#sNm').value||20;b.co=+$('#sCo').value||12;b.auto=$('#sAuto').checked;b.ft=$('#sFt').value;b.fts=+$('#sFts').value||6;b.copies=+$('#sCopies').value||2;b.ftb=$('#sFtb').value===''?1:+$('#sFtb').value;b.dx=+$('#sDx').value||0;b.dy=+$('#sDy').value||0;persist();drawPreview()}
 function drawPreview(){const r=S.rows.find(x=>displayName(x))||null;$('#previewWrap').innerHTML='<label>Попередній перегляд</label><div id="preview" style="width:'+S.badge.w+'mm">'+badgeHTML(r)+'</div>';const el=$('#preview .badge');if(el)fitBadge(el)}
 
 // ---------- дрібниці ----------
@@ -790,7 +813,8 @@ $('#btnDelete').onclick=deleteRow;
 ['#fName','#fEmail','#fPhone'].forEach(s=>$(s).addEventListener('input',()=>{dupOverride=false;$('#dupBox').classList.remove('show')}));
 $('#mEdit').onkeydown=e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT'){e.preventDefault();if(!e.repeat)saveEdit()}if(e.key==='Escape')$('#mEdit').classList.remove('show')};
 $('#btnSettings').onclick=openSettings;
-['#sW','#sH','#sEv','#sNm','#sCo','#sAuto','#sFt','#sFts','#sCopies'].forEach(s=>$(s).oninput=readSettings);
+['#sW','#sH','#sEv','#sNm','#sCo','#sAuto','#sFt','#sFts','#sCopies','#sFtb','#sDx','#sDy'].forEach(s=>$(s).oninput=readSettings);
+$('#btnCalib').onclick=printCalib;
 $('#btnTestPrint').onclick=()=>printBadge(S.rows.find(x=>displayName(x))||null);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('#mHelp.show,#mSet.show,#mDup.show').forEach(m=>m.classList.remove('show'))});
 $('#btnCloseSet').onclick=()=>$('#mSet').classList.remove('show');
